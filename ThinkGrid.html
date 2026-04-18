@@ -1,0 +1,3414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeOS — Personal Systems Debugger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060608;--bg2:#0d0d12;--bg3:#11111a;--surface:#161620;--surface2:#1c1c2a;
+  --border:#252535;--border2:#303048;--border3:#3a3a58;
+  --text:#eeeef8;--text2:#8888aa;--text3:#44445a;
+  --accent:#7c6cff;--accent2:#a090ff;--accent3:#c8bcff;
+  --green:#1de8a0;--yellow:#f5c642;--red:#ff4a4a;--orange:#ff8c42;
+  --mono:'IBM Plex Mono',monospace;--sans:'Syne',sans-serif;
+  --glow-purple:0 0 20px rgba(124,108,255,.35);
+  --glow-green:0 0 20px rgba(29,232,160,.3);
+  --glow-red:0 0 20px rgba(255,74,74,.3);
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;overflow-x:hidden}
+h1,h2,h3,h4{font-family:var(--mono)}
+
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(124,108,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(124,108,255,.03) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border3);border-radius:2px}
+
+.page{display:none;position:relative;z-index:1}
+.page.active{display:block}
+
+/* ONBOARDING — conversational questionnaire */
+#onboard-page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+#onboard-page.active{display:flex}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes bounceIn{0%{opacity:0;transform:scale(.88)}60%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+
+/* Header */
+.ob-header{text-align:center;margin-bottom:32px;animation:fadeUp .5s ease both}
+.ob-logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px}
+.ob-logo-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c6cff,#a090ff);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;box-shadow:var(--glow-purple)}
+.ob-title{font-family:var(--mono);font-size:28px;letter-spacing:-1px;background:linear-gradient(135deg,#eeeef8,#8888aa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.ob-subtitle{font-size:13px;color:var(--text3);font-family:var(--mono);letter-spacing:3px;text-transform:uppercase;margin-top:8px}
+
+/* Main chat container */
+.qa-shell{width:100%;max-width:680px;animation:fadeUp .6s ease .1s both}
+
+/* Progress bar */
+.qa-progress-bar{height:2px;background:var(--border);border-radius:2px;margin-bottom:28px;overflow:hidden}
+.qa-progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* Chat scroll area */
+.qa-messages{display:flex;flex-direction:column;gap:16px;margin-bottom:24px;max-height:440px;overflow-y:auto;padding-right:4px}
+.qa-messages::-webkit-scrollbar{width:3px}
+.qa-messages::-webkit-scrollbar-thumb{background:var(--border3);border-radius:2px}
+
+/* System message bubble */
+.qa-msg-system{display:flex;gap:12px;align-items:flex-start;animation:slideIn .3s ease both}
+.qa-avatar{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#7c6cff,#a090ff);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:var(--glow-purple)}
+.qa-bubble-system{background:var(--bg2);border:1px solid var(--border2);border-radius:0 14px 14px 14px;padding:14px 16px;max-width:calc(100% - 48px);font-size:14px;color:var(--text);line-height:1.6;position:relative}
+.qa-bubble-system::after{content:'';position:absolute;left:-6px;top:10px;width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:6px solid var(--border2)}
+
+/* User reply bubble */
+.qa-msg-user{display:flex;justify-content:flex-end;animation:slideIn .3s ease both}
+.qa-bubble-user{background:rgba(124,108,255,.18);border:1px solid rgba(124,108,255,.3);border-radius:14px 0 14px 14px;padding:10px 16px;max-width:85%;font-size:13px;color:var(--accent3);font-family:var(--mono)}
+
+/* Typing indicator */
+.qa-typing{display:flex;gap:12px;align-items:center;animation:fadeIn .2s ease both}
+.qa-typing-dots{display:flex;gap:4px;padding:10px 14px}
+.qa-typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--text3);animation:pulse 1.2s ease-in-out infinite}
+.qa-typing-dots span:nth-child(2){animation-delay:.2s}
+.qa-typing-dots span:nth-child(3){animation-delay:.4s}
+
+/* Input area */
+.qa-input-area{background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:16px;animation:fadeIn .4s ease both}
+
+/* Option chips */
+.qa-options{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.qa-opt{padding:8px 16px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:13px;font-family:var(--sans);cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.qa-opt::before{content:'';position:absolute;inset:0;background:rgba(124,108,255,.08);opacity:0;transition:opacity .2s}
+.qa-opt:hover{border-color:var(--border3);color:var(--text)}
+.qa-opt:hover::before{opacity:1}
+.qa-opt.selected{background:rgba(124,108,255,.18);border-color:var(--accent);color:var(--accent3)}
+.qa-opt.selected::before{opacity:0}
+.qa-opt-hint{font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:8px;letter-spacing:1px}
+
+/* Scale selector */
+.qa-scale{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.qa-scale-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--border2);background:var(--surface);color:var(--text3);font-family:var(--mono);font-size:13px;cursor:pointer;transition:all .2s;flex-shrink:0}
+.qa-scale-btn:hover{border-color:var(--accent);color:var(--text)}
+.qa-scale-btn.active{background:rgba(124,108,255,.2);border-color:var(--accent);color:var(--accent3)}
+.qa-scale-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:6px;letter-spacing:1px}
+
+/* Number input */
+.qa-num-row{display:flex;gap:10px;align-items:center}
+.qa-num-input{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;color:var(--text);font-family:var(--mono);font-size:16px;outline:none;width:110px;text-align:center;transition:border-color .2s}
+.qa-num-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.12)}
+.qa-num-suffix{font-family:var(--mono);font-size:13px;color:var(--text3)}
+.qa-num-hint{font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:6px;letter-spacing:.5px;transition:color .3s}
+.qa-num-hint.warn{color:var(--red)}
+.qa-num-hint.ok{color:var(--green)}
+.qa-num-hint.caution{color:var(--yellow)}
+
+/* Multi-select chips */
+.qa-multi-chips{display:flex;gap:8px;flex-wrap:wrap}
+.qa-chip{padding:7px 14px;border-radius:20px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-size:13px;cursor:pointer;transition:all .2s}
+.qa-chip:hover{border-color:var(--border3);color:var(--text)}
+.qa-chip.sel{background:rgba(124,108,255,.18);border-color:var(--accent);color:var(--accent3)}
+
+/* Continue button */
+.qa-continue-btn{width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,var(--accent),#9060ff);color:#fff;border:none;border-radius:12px;font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;opacity:.4;pointer-events:none}
+.qa-continue-btn.ready{opacity:1;pointer-events:auto}
+.qa-continue-btn.ready:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(124,108,255,.4)}
+
+/* Results summary screen */
+.qa-results{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:28px;animation:bounceIn .4s ease both}
+.qa-result-title{font-family:var(--mono);font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--text3);margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.qa-result-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.qa-area-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.qa-area-row:last-child{border-bottom:none}
+.qa-area-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+.qa-area-name{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:1px;min-width:90px;color:var(--text)}
+.qa-area-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.qa-area-fill{height:100%;border-radius:3px;transition:width 1s cubic-bezier(.4,0,.2,1) .3s}
+.qa-area-score{font-family:var(--mono);font-size:13px;font-weight:700;min-width:32px;text-align:right}
+.qa-area-status{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:5px;min-width:56px;text-align:center}
+.status-critical{background:rgba(255,74,74,.15);color:var(--red);border:1px solid rgba(255,74,74,.2)}
+.status-warning{background:rgba(245,198,66,.12);color:var(--yellow);border:1px solid rgba(245,198,66,.2)}
+.status-healthy{background:rgba(29,232,160,.1);color:var(--green);border:1px solid rgba(29,232,160,.2)}
+
+.qa-insight-box{margin-top:16px;padding:14px 16px;background:rgba(124,108,255,.06);border:1px solid rgba(124,108,255,.2);border-radius:12px;font-size:13px;color:var(--text2);line-height:1.65}
+.qa-bottleneck-alert{margin-top:12px;display:flex;gap:12px;align-items:flex-start;padding:14px;background:rgba(255,74,74,.07);border:1px solid rgba(255,74,74,.2);border-radius:12px}
+.qa-btn-launch{width:100%;margin-top:20px;padding:15px;background:linear-gradient(135deg,var(--accent),#9060ff);color:#fff;border:none;border-radius:14px;font-family:var(--mono);font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+.qa-btn-launch:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(124,108,255,.4)}
+.ob-hint{font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:1px;text-align:center;margin-top:10px}
+
+/* Legacy hidden styles (keep for compatibility) */
+.sleep-zone{display:none}
+.form-grid{display:none}
+.slider-group{display:none}
+.problems-section{display:none}
+.ob-footer{display:none}
+.ob-card{display:none}
+input[type=range]{position:absolute;inset:0;width:100%;margin:0;opacity:0;cursor:pointer;height:100%}
+.slider-track{position:relative;height:6px;background:var(--border2);border-radius:3px}
+.slider-fill{position:absolute;left:0;top:0;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));pointer-events:none;transition:width .05s}
+
+/* DASHBOARD */
+#dash-page{display:none;min-height:100vh;flex-direction:column}
+#dash-page.active{display:flex}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:rgba(6,6,8,.85);backdrop-filter:blur(12px);position:sticky;top:0;z-index:200}
+.nav-left{display:flex;align-items:center;gap:16px}
+.nav-logo{display:flex;align-items:center;gap:8px}
+.nav-logo-mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#7c6cff,#a090ff);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;color:#fff}
+.nav-name{font-family:var(--mono);font-size:13px;letter-spacing:-0.5px}
+.nav-tabs{display:flex;gap:2px;background:var(--surface);border-radius:10px;padding:3px}
+.nav-tab{padding:6px 14px;border-radius:8px;font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;color:var(--text3);border:none;background:none}
+.nav-tab.active{background:var(--border2);color:var(--text)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.health-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-family:var(--mono);font-size:12px;border:1px solid;transition:all .4s}
+.btn-reset{background:none;border:1px solid var(--border2);color:var(--text3);padding:6px 14px;border-radius:8px;font-size:11px;font-family:var(--mono);cursor:pointer;letter-spacing:1px;transition:all .2s}
+.btn-reset:hover{border-color:var(--red);color:var(--red)}
+
+.tab-panel{display:none;flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
+.tab-panel.active{display:grid}
+#tab-diagnosis{grid-template-columns:1fr 360px;gap:20px}
+#tab-lifemap{grid-template-columns:1fr}
+#tab-simulate{grid-template-columns:1fr 380px;gap:20px}
+#tab-rules{grid-template-columns:1fr}
+@media(max-width:900px){
+  #tab-diagnosis,#tab-simulate{grid-template-columns:1fr}
+  .right-col-sim{display:none}
+}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.card-hd{font-family:var(--mono);font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-hd-dot{width:5px;height:5px;border-radius:50%;background:currentColor;filter:brightness(1.8)}
+
+#graph-canvas{width:100%;border-radius:12px;background:var(--bg3);display:block;cursor:pointer}
+
+.bn-header{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.bn-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,74,74,.1);border:1px solid rgba(255,74,74,.25);flex-shrink:0}
+.bn-node-name{font-family:var(--mono);font-size:22px;letter-spacing:-1px;text-transform:uppercase;color:var(--red)}
+.bn-score-badge{font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:2px}
+
+.impact-row{margin-bottom:10px}
+.impact-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:6px}
+.impact-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.impact-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--red),var(--orange));transition:width .8s cubic-bezier(.4,0,.2,1)}
+
+.explanation-box{padding:14px;background:var(--surface);border-radius:12px;border-left:3px solid var(--red);font-size:13px;color:var(--text2);line-height:1.65}
+
+/* Tradeoff warning box */
+.tradeoff-box{padding:12px 14px;background:rgba(245,198,66,.06);border:1px solid rgba(245,198,66,.18);border-radius:10px;font-size:12px;color:var(--yellow);line-height:1.6;margin-top:10px;font-family:var(--mono);display:none}
+.tradeoff-box.show{display:block}
+
+/* Action suggestions */
+.action-suggestions{margin-top:14px}
+.action-suggestion-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.action-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--border);margin-bottom:6px;font-size:12px;color:var(--text2)}
+.action-item .action-tag{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;flex-shrink:0}
+.action-tag.reduce{background:rgba(255,74,74,.12);color:var(--red);border:1px solid rgba(255,74,74,.2)}
+.action-tag.increase{background:rgba(29,232,160,.1);color:var(--green);border:1px solid rgba(29,232,160,.2)}
+.action-tag.balance{background:rgba(245,198,66,.1);color:var(--yellow);border:1px solid rgba(245,198,66,.2)}
+
+.scores-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.score-chip{background:var(--surface);border-radius:10px;padding:12px 10px;text-align:center;border:1px solid var(--border);transition:border-color .3s}
+.sc-name{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+.sc-val{font-family:var(--mono);font-size:18px;font-weight:700;transition:color .3s}
+
+.chain-wrap{display:flex;align-items:center;flex-wrap:wrap;gap:0;margin-top:12px}
+.chain-node{padding:6px 12px;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:500;background:var(--surface);border:1px solid var(--border2)}
+.chain-arrow{font-family:var(--mono);font-size:13px;color:var(--text3);padding:0 4px}
+
+.leverage-alert{display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(245,198,66,.07);border:1px solid rgba(245,198,66,.2);border-radius:12px;margin-top:16px}
+.lev-icon{font-size:18px;color:var(--yellow)}
+.lev-text strong{color:var(--yellow);font-family:var(--mono);font-size:12px;display:block;margin-bottom:2px}
+.lev-text span{font-size:12px;color:var(--text2)}
+
+.health-big{text-align:center;padding:20px 0}
+.health-number{font-family:var(--mono);font-size:72px;font-weight:700;letter-spacing:-4px;line-height:1;transition:all .4s}
+.health-label{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text3);margin-top:8px}
+.health-status{font-size:12px;color:var(--text2);margin-top:8px}
+
+#lifemap-canvas{width:100%;border-radius:16px;background:var(--bg3);display:block}
+
+.sim-header{margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+.sim-title{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent2)}
+.sim-badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:5px;background:rgba(124,108,255,.15);color:var(--accent2);border:1px solid rgba(124,108,255,.2)}
+
+.sim-slider-group{margin-bottom:22px}
+.sim-slider-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sim-slider-name{font-family:var(--mono);font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.sim-slider-icon{font-size:14px}
+.sim-slider-val{font-family:var(--mono);font-size:14px;color:var(--accent);font-weight:700}
+.sim-track{position:relative;height:6px;background:var(--border2);border-radius:3px;margin-top:4px}
+.sim-fill{position:absolute;left:0;top:0;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));pointer-events:none;transition:width .05s}
+input.sim-input{position:absolute;inset:0;width:100%;margin:0;opacity:0;cursor:pointer;height:100%}
+input.sim-input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;cursor:grab}
+
+/* Sim tradeoff alert */
+.sim-tradeoff{padding:10px 14px;background:rgba(255,140,66,.07);border:1px solid rgba(255,140,66,.2);border-radius:10px;font-size:11px;color:var(--orange);font-family:var(--mono);letter-spacing:.5px;margin-bottom:14px;display:none;line-height:1.6}
+.sim-tradeoff.show{display:block}
+
+.projection-card{background:linear-gradient(135deg,rgba(29,232,160,.07),rgba(29,232,160,.02));border:1px solid rgba(29,232,160,.2);border-radius:14px;padding:20px;text-align:center;margin-top:8px}
+.proj-delta{font-family:var(--mono);font-size:42px;font-weight:700;line-height:1;transition:all .3s}
+.proj-subtitle{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text3);margin-top:6px}
+.proj-detail{font-size:12px;color:var(--text2);margin-top:8px}
+.proj-bar-wrap{margin-top:14px;display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--text3)}
+.proj-bar-track{flex:1;height:4px;background:var(--border2);border-radius:2px;overflow:hidden;position:relative}
+.proj-bar-baseline{position:absolute;left:0;top:0;height:100%;background:var(--text3);transition:width .6s}
+.proj-bar-current{position:absolute;left:0;top:0;height:100%;background:var(--green);transition:width .6s}
+
+.sim-left{display:flex;flex-direction:column;gap:20px}
+.sim-graph-wrap canvas{border-radius:12px;background:var(--bg3);width:100%;display:block}
+
+.rules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;padding:4px}
+.rule-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;align-items:flex-start;gap:14px;transition:border-color .2s,background .2s;cursor:pointer}
+.rule-card:hover{border-color:var(--border2)}
+.rule-card.active-rule{border-color:rgba(124,108,255,.3);background:rgba(124,108,255,.04)}
+.rule-toggle{width:32px;height:18px;border-radius:9px;position:relative;flex-shrink:0;transition:background .25s;margin-top:2px}
+.rule-toggle.on{background:var(--accent);box-shadow:0 0 10px rgba(124,108,255,.4)}
+.rule-toggle.off{background:var(--border2)}
+.rule-toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;transition:left .25s;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.rule-toggle.on::after{left:16px}
+.rule-toggle.off::after{left:2px}
+.rule-body{flex:1}
+.rule-title{font-family:var(--mono);font-size:12px;color:var(--text);margin-bottom:4px;line-height:1.4}
+.rule-desc{font-size:12px;color:var(--text3);line-height:1.5}
+.rule-tag{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 8px;border-radius:5px;font-family:var(--mono);font-size:10px}
+.rule-tag.impact-high{background:rgba(255,74,74,.12);color:#ff7070;border:1px solid rgba(255,74,74,.2)}
+.rule-tag.impact-med{background:rgba(245,198,66,.1);color:#f5c642;border:1px solid rgba(245,198,66,.2)}
+.rule-tag.impact-low{background:rgba(29,232,160,.08);color:#1de8a0;border:1px solid rgba(29,232,160,.2)}
+
+.shr-grid{display:flex;flex-direction:column;gap:10px}
+.shr-row{display:flex;align-items:center;gap:12px}
+.shr-label{font-size:13px;color:var(--text);min-width:130px}
+.shr-bar-wrap{flex:1;position:relative;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.shr-bar-fill{position:absolute;left:0;top:0;height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.shr-score{font-family:var(--mono);font-size:13px;font-weight:700;min-width:28px;text-align:right}
+.shr-badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:5px;min-width:60px;text-align:center}
+.badge-critical{background:rgba(255,74,74,.15);color:var(--red);border:1px solid rgba(255,74,74,.2)}
+.badge-warning{background:rgba(245,198,66,.12);color:var(--yellow);border:1px solid rgba(245,198,66,.2)}
+.badge-healthy{background:rgba(29,232,160,.1);color:var(--green);border:1px solid rgba(29,232,160,.2)}
+
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stat-number{font-family:var(--mono);font-size:32px;font-weight:700;line-height:1}
+.stat-label{font-size:12px;color:var(--text3);margin-top:4px;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase}
+
+.fix-plan-btn{width:100%;margin-top:16px;padding:14px;background:none;border:1px solid var(--border2);border-radius:12px;color:var(--text);font-family:var(--mono);font-size:12px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.fix-plan-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(124,108,255,.06)}
+.fix-plan-output{margin-top:12px;padding:16px;background:var(--surface);border-radius:12px;border:1px solid var(--border2);font-size:13px;color:var(--text2);line-height:1.7;display:none}
+.fix-plan-output.visible{display:block}
+.fix-step{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+.fix-step-num{font-family:var(--mono);font-size:11px;color:var(--accent);background:rgba(124,108,255,.12);border-radius:5px;padding:2px 7px;flex-shrink:0;margin-top:1px}
+
+.loading-pulse{animation:lpulse 1.2s ease-in-out infinite}
+@keyframes lpulse{0%,100%{opacity:.5}50%{opacity:1}}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:12px 18px;font-family:var(--mono);font-size:12px;letter-spacing:1px;z-index:9999;transform:translateY(60px);opacity:0;transition:all .3s;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:var(--glow-green)}
+
+.fade-in{animation:fadeIn .4s ease both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ── HABIT TRACKER ── */
+#tab-tracker.active{display:block!important;padding-top:16px}
+#tab-tracker > div{margin-top:0}
+#tab-tracker{grid-template-columns:1fr;gap:20px}
+.tracker-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.tracker-stat{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.tracker-stat-num{font-family:var(--mono);font-size:36px;font-weight:700;line-height:1}
+.tracker-stat-label{font-family:var(--mono);font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3)}
+.tracker-stat-sub{font-size:11px;color:var(--text2);margin-top:4px}
+
+/* Day log section */
+.day-log-wrap{display:flex;flex-direction:column;gap:10px}
+.day-log-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.day-date-nav{display:flex;align-items:center;gap:12px}
+.day-nav-btn{background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:var(--mono);font-size:12px;padding:5px 12px;cursor:pointer;transition:all .2s}
+.day-nav-btn:hover{border-color:var(--accent);color:var(--accent)}
+.day-label{font-family:var(--mono);font-size:13px;color:var(--text);min-width:160px;text-align:center}
+.btn-save-day{background:linear-gradient(135deg,var(--accent),#9060ff);color:#fff;border:none;border-radius:10px;padding:8px 20px;font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.btn-save-day:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(124,108,255,.4)}
+
+/* Activity grid */
+.activity-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.activity-card{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .2s;user-select:none;position:relative;overflow:hidden}
+.activity-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,108,255,.08),transparent);opacity:0;transition:opacity .2s}
+.activity-card.checked{border-color:rgba(29,232,160,.4);background:rgba(29,232,160,.06)}
+.activity-card.checked::before{opacity:1;background:linear-gradient(135deg,rgba(29,232,160,.08),transparent)}
+.activity-card:hover:not(.checked){border-color:var(--border3)}
+.activity-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border3);display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .2s;flex-shrink:0}
+.activity-card.checked .activity-check{background:var(--green);border-color:var(--green);box-shadow:0 0 10px rgba(29,232,160,.4)}
+.activity-card-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.activity-emoji{font-size:20px}
+.activity-name{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:500}
+.activity-pts{font-family:var(--mono);font-size:10px;color:var(--text3)}
+.activity-input-wrap{margin-top:8px;display:none}
+.activity-card.show-input .activity-input-wrap{display:block}
+.activity-input{background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:6px 10px;color:var(--text);font-family:var(--mono);font-size:11px;width:100%;outline:none}
+.activity-input:focus{border-color:var(--accent)}
+
+/* Day score ring */
+.day-score-ring{display:flex;flex-direction:column;align-items:center;gap:6px}
+.ring-wrap{position:relative;width:100px;height:100px}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-num{font-family:var(--mono);font-size:22px;font-weight:700}
+.ring-lbl{font-family:var(--mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text3)}
+
+/* 7-week screen-time style report */
+.weekly-report-wrap{display:flex;flex-direction:column;gap:16px}
+.week-nav{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.week-range{font-family:var(--mono);font-size:13px;color:var(--text);min-width:200px;text-align:center}
+.bar-chart-wrap{display:flex;align-items:flex-end;gap:6px;height:140px;padding-bottom:4px}
+.bar-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.bar-bg{flex:1;width:100%;background:var(--surface);border-radius:6px 6px 0 0;position:relative;overflow:hidden;min-height:4px}
+.bar-fill{position:absolute;bottom:0;left:0;right:0;border-radius:6px 6px 0 0;transition:height .6s cubic-bezier(.4,0,.2,1)}
+.bar-day-label{font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3)}
+.bar-val-label{font-family:var(--mono);font-size:9px;color:var(--text2)}
+.bar-col.today-col .bar-day-label{color:var(--accent2)}
+.bar-col.today-col .bar-val-label{color:var(--accent2)}
+
+/* Habit streaks */
+.streak-list{display:flex;flex-direction:column;gap:8px}
+.streak-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)}
+.streak-emoji{font-size:18px;width:26px;text-align:center}
+.streak-name{font-family:var(--mono);font-size:11px;color:var(--text);flex:1}
+.streak-dots{display:flex;gap:4px}
+.streak-dot{width:10px;height:10px;border-radius:50%}
+.streak-dot.done{background:var(--green);box-shadow:0 0 6px rgba(29,232,160,.4)}
+.streak-dot.miss{background:var(--border2)}
+.streak-dot.future{background:transparent;border:1px solid var(--border2)}
+.streak-count{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:50px;text-align:right}
+
+/* Improvement delta */
+.improve-banner{display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:14px;border:1px solid;margin-bottom:4px}
+.improve-banner.up{background:rgba(29,232,160,.06);border-color:rgba(29,232,160,.25)}
+.improve-banner.down{background:rgba(255,74,74,.06);border-color:rgba(255,74,74,.25)}
+.improve-banner.flat{background:rgba(124,108,255,.06);border-color:rgba(124,108,255,.2)}
+.improve-arrow{font-size:28px;line-height:1}
+.improve-big{font-family:var(--mono);font-size:28px;font-weight:700;line-height:1}
+.improve-sub{font-size:12px;color:var(--text2);margin-top:3px}
+
+/* Custom habit modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:28px;width:100%;max-width:420px;animation:fadeUp .3s ease both}
+.modal-title{font-family:var(--mono);font-size:14px;margin-bottom:20px;letter-spacing:-0.5px}
+.modal-row{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.modal-label{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2)}
+.modal-input{background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:10px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;width:100%}
+.modal-input:focus{border-color:var(--accent)}
+.emoji-picker{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.emoji-opt{width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:18px;border-radius:8px;cursor:pointer;border:1px solid var(--border2);background:var(--surface);transition:all .15s}
+.emoji-opt.sel{border-color:var(--accent);background:rgba(124,108,255,.15)}
+.modal-footer{display:flex;gap:10px;margin-top:20px}
+.btn-modal-cancel{flex:1;padding:11px;background:none;border:1px solid var(--border2);border-radius:10px;color:var(--text3);font-family:var(--mono);font-size:12px;cursor:pointer;transition:all .2s}
+.btn-modal-cancel:hover{border-color:var(--red);color:var(--red)}
+.btn-modal-save{flex:2;padding:11px;background:linear-gradient(135deg,var(--accent),#9060ff);color:#fff;border:none;border-radius:10px;font-family:var(--mono);font-size:12px;letter-spacing:1px;cursor:pointer}
+
+/* AI insight box */
+.ai-insight{padding:14px 16px;background:rgba(124,108,255,.06);border:1px solid rgba(124,108,255,.2);border-radius:12px;font-size:12px;color:var(--text2);line-height:1.65;position:relative;overflow:hidden}
+.ai-insight::before{content:'✦ AI';position:absolute;top:10px;right:12px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);opacity:.7}
+
+/* ── AI ADVISOR TAB ── */
+#tab-advisor.active{display:flex!important;flex-direction:column;padding:0;height:calc(100vh - 57px)}
+.advisor-shell{display:flex;flex-direction:column;flex:1;max-width:720px;width:100%;margin:0 auto;padding:0 16px;height:100%}
+.advisor-header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 12px;border-bottom:1px solid var(--border)}
+.advisor-avatar-big{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c6cff,#a090ff);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:var(--glow-purple)}
+.advisor-mode-chip{font-family:var(--mono);font-size:9px;letter-spacing:2px;padding:4px 10px;border-radius:20px;border:1px solid;transition:all .4s}
+.mode-deep{background:rgba(124,108,255,.1);border-color:rgba(124,108,255,.3);color:var(--accent2)}
+.mode-simplified{background:rgba(29,232,160,.08);border-color:rgba(29,232,160,.25);color:var(--green)}
+.mode-micro{background:rgba(245,198,66,.08);border-color:rgba(245,198,66,.25);color:var(--yellow)}
+.mode-emergency{background:rgba(255,74,74,.1);border-color:rgba(255,74,74,.3);color:var(--red);animation:pulse 1.2s ease-in-out infinite}
+.advisor-messages{flex:1;overflow-y:auto;padding:16px 0;display:flex;flex-direction:column;gap:12px}
+.advisor-messages::-webkit-scrollbar{width:2px}
+.advisor-messages::-webkit-scrollbar-thumb{background:var(--border3)}
+.adv-msg-system{display:flex;gap:10px;align-items:flex-start;animation:slideIn .25s ease both}
+.adv-avatar{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#7c6cff,#a090ff);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;box-shadow:var(--glow-purple)}
+.adv-bubble-system{background:var(--bg2);border:1px solid var(--border2);border-radius:0 12px 12px 12px;padding:10px 14px;max-width:88%;font-size:13px;color:var(--text);line-height:1.6;position:relative}
+.adv-bubble-system::after{content:'';position:absolute;left:-5px;top:8px;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-right:5px solid var(--border2)}
+.adv-msg-user{display:flex;justify-content:flex-end}
+.adv-bubble-user{background:rgba(124,108,255,.15);border:1px solid rgba(124,108,255,.25);border-radius:12px 0 12px 12px;padding:8px 14px;max-width:85%;font-size:13px;color:var(--accent3);font-family:var(--mono)}
+.adv-typing{display:flex;gap:10px;align-items:center;animation:fadeIn .2s ease both}
+.adv-typing-dots{display:flex;gap:4px;padding:8px 12px}
+.adv-typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--text3);animation:pulse 1.2s ease-in-out infinite}
+.adv-typing-dots span:nth-child(2){animation-delay:.2s}
+.adv-typing-dots span:nth-child(3){animation-delay:.4s}
+.advisor-input-row{display:flex;gap:10px;padding:12px 0 16px;border-top:1px solid var(--border)}
+.advisor-input{flex:1;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:11px 16px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;transition:border-color .2s}
+.advisor-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,108,255,.1)}
+.advisor-send-btn{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#9060ff);color:#fff;border:none;font-size:16px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.advisor-send-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(124,108,255,.4)}
+/* sensory mode — strip visual noise */
+.sensory-mode .adv-bubble-system{background:var(--bg);border-color:var(--border)}
+.sensory-mode .advisor-header .advisor-mode-chip{opacity:0}
+
+@media(max-width:700px){
+  .advisor-shell{padding:0 10px}
+}
+
+</style>
+</head>
+<body>
+
+<!-- Hidden legacy inputs — keep for launchDashboard compatibility -->
+<input type="hidden" id="f-sleep" value="6">
+<input type="hidden" id="f-work" value="10">
+<input type="hidden" id="f-phone" value="5">
+<input type="hidden" id="f-stress" value="7">
+<input type="hidden" id="f-energy" value="4">
+<div style="display:none">
+  <div id="phone-display"></div><div id="stress-display"></div><div id="energy-display"></div>
+  <div id="phone-fill"></div><div id="stress-fill"></div><div id="energy-fill"></div>
+  <div id="sleep-zone-hint"></div><div id="work-zone-hint"></div><div id="stress-zone-hint"></div>
+  <div id="problems-hint"></div><div id="prob-chips"></div>
+</div>
+
+<!-- ONBOARDING PAGE — Conversational Questionnaire -->
+<div id="onboard-page" class="page active">
+  <div class="ob-header">
+    <div class="ob-logo">
+      <div class="ob-logo-mark">TG</div>
+    </div>
+    <div class="ob-title">ThinkGrid</div>
+    <div class="ob-subtitle">Personal Systems Debugger v3.0</div>
+  </div>
+
+  <div class="qa-shell">
+    <!-- Progress -->
+    <div class="qa-progress-bar"><div class="qa-progress-fill" id="qa-progress" style="width:0%"></div></div>
+
+    <!-- Chat messages -->
+    <div class="qa-messages" id="qa-messages"></div>
+
+    <!-- Active input zone (swapped out per question) -->
+    <div id="qa-input-zone"></div>
+
+    <div class="ob-hint" style="margin-top:12px">Your data stays local — no account needed</div>
+  </div>
+</div>
+
+
+<!-- DASHBOARD PAGE -->
+<div id="dash-page" class="page">
+
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">
+        <div class="nav-logo-mark">TG</div>
+        <span class="nav-name">ThinkGrid</span>
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab('diagnosis')">Diagnosis</button>
+        <button class="nav-tab" onclick="switchTab('lifemap')">Life Map</button>
+        <button class="nav-tab" onclick="switchTab('simulate')">Simulate</button>
+        <button class="nav-tab" onclick="switchTab('rules')">Rules</button>
+        <button class="nav-tab" onclick="switchTab('tracker')">Tracker</button>
+        <button class="nav-tab" onclick="switchTab('advisor')">Advisor</button>
+      </div>
+    </div>
+    <div class="nav-right">
+      <div class="health-pill" id="nav-health-pill">
+        <span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0"></span>
+        <span id="nav-health-text">Loading…</span>
+      </div>
+      <button class="btn-reset" onclick="resetApp()">↩ Reset</button>
+    </div>
+  </nav>
+
+  <!-- TAB: DIAGNOSIS -->
+  <div class="tab-panel active" id="tab-diagnosis">
+
+    <!-- LEFT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- Graph -->
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-dot"></span>Dependency Graph</div>
+        <canvas id="graph-canvas" height="340"></canvas>
+      </div>
+
+      <!-- System Health Report -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <div class="card-hd" style="margin-bottom:0"><span class="card-hd-dot"></span>System Health Report</div>
+          <div id="shr-critical-badge" class="shr-badge badge-critical" style="font-size:11px;padding:4px 10px"></div>
+        </div>
+        <div class="shr-grid" id="shr-grid"></div>
+      </div>
+
+      <!-- Action Recommendations: What to Reduce / Increase -->
+      <div class="card" id="action-rec-card">
+        <div class="card-hd"><span class="card-hd-dot" style="color:var(--orange)"></span>Recommended Actions</div>
+        <div id="action-rec-list"></div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-number" id="stat-score" style="color:var(--red)">—</div>
+          <div class="stat-label">Overall Life Score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-leverage" style="color:var(--yellow)">—</div>
+          <div class="stat-label">Leverage Points Found</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-gain" style="color:var(--green)">—</div>
+          <div class="stat-label">Potential Score Gain</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="stat-rules" style="color:var(--accent2)">—</div>
+          <div class="stat-label">Auto-Rules Available</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- Health Score -->
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-dot"></span>System Health</div>
+        <div class="health-big">
+          <div class="health-number" id="health-num">—</div>
+          <div class="health-label">Health Score</div>
+          <div class="health-status" id="health-status">Analysing…</div>
+        </div>
+        <div class="scores-row" id="scores-grid"></div>
+      </div>
+
+      <!-- Bottleneck -->
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-dot" style="color:var(--red)"></span>Critical Bottleneck</div>
+        <div class="bn-header">
+          <div class="bn-icon" id="bn-icon">⚡</div>
+          <div>
+            <div class="bn-node-name" id="bn-node">—</div>
+            <div class="bn-score-badge" id="bn-score">Detecting…</div>
+          </div>
+        </div>
+        <div class="impact-row">
+          <div class="impact-labels">
+            <span>Impact Score</span>
+            <span id="bn-impact-num">—</span>
+          </div>
+          <div class="impact-track">
+            <div class="impact-fill" id="bn-impact-bar" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="explanation-box" id="bn-explanation">Analysing your system…</div>
+        <div class="tradeoff-box" id="bn-tradeoff"></div>
+      </div>
+
+      <!-- Root Cause Chain -->
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-dot" style="color:var(--orange)"></span>Root Cause Chain</div>
+        <div class="chain-wrap" id="chain-wrap"></div>
+        <div class="leverage-alert" id="leverage-alert">
+          <div class="lev-icon">⚡</div>
+          <div class="lev-text">
+            <strong>Leverage Point Detected</strong>
+            <span id="leverage-text">—</span>
+          </div>
+        </div>
+        <button class="fix-plan-btn" onclick="generateFixPlan()">
+          Get Fix Plan for My Root Cause &nbsp; ↗
+        </button>
+        <div class="fix-plan-output" id="fix-plan-output"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB: LIFE MAP -->
+  <div class="tab-panel" id="tab-lifemap">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-dot" style="color:var(--accent2)"></span>Life Dependency Map</div>
+        <canvas id="lifemap-canvas" height="480"></canvas>
+        <div style="margin-top:14px;display:flex;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--text3)">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div> Healthy (≥65)
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--text3)">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--yellow)"></div> Warning (40–64)
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--text3)">
+            <div style="width:10px;height:10px;border-radius:50%;background:var(--red)"></div> Critical (&lt;40)
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--text3)">
+            <div style="width:14px;height:3px;background:var(--red);border-radius:2px"></div> Bottleneck Node
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px" id="node-detail-cards"></div>
+    </div>
+  </div>
+
+  <!-- TAB: SIMULATE -->
+  <div class="tab-panel" id="tab-simulate">
+    <div class="sim-left">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-hd" style="margin-bottom:0"><span class="card-hd-dot" style="color:var(--accent)"></span>Live Simulation Graph</div>
+          <div class="sim-badge">LIVE</div>
+        </div>
+        <canvas id="sim-canvas" height="300"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="card-hd-dot" style="color:var(--green)"></span>Score Comparison</div>
+        <div id="sim-compare-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+      </div>
+    </div>
+
+    <!-- Right: sliders + projection -->
+    <div class="right-col-sim" style="display:flex;flex-direction:column;gap:20px">
+      <div class="card">
+        <div class="sim-header">
+          <span class="sim-title">Adjust Variables</span>
+          <span class="sim-badge">REAL-TIME</span>
+        </div>
+
+        <div class="sim-tradeoff" id="sim-tradeoff-alert"></div>
+
+        <div class="sim-slider-group">
+          <div class="sim-slider-hd">
+            <span class="sim-slider-name"><span class="sim-slider-icon">🌙</span> Sleep Hours</span>
+            <span class="sim-slider-val" id="ss-sleep-val">6.0h</span>
+          </div>
+          <div class="sim-track">
+            <div class="sim-fill" id="ss-sleep-fill" style="width:50%"></div>
+            <input class="sim-input" type="range" id="ss-sleep" min="2" max="12" value="6" step="0.5"
+              oninput="onSimChange()">
+          </div>
+        </div>
+
+        <div class="sim-slider-group">
+          <div class="sim-slider-hd">
+            <span class="sim-slider-name"><span class="sim-slider-icon">📱</span> Phone Hours</span>
+            <span class="sim-slider-val" id="ss-phone-val">5.0h</span>
+          </div>
+          <div class="sim-track">
+            <div class="sim-fill" id="ss-phone-fill" style="width:41.7%"></div>
+            <input class="sim-input" type="range" id="ss-phone" min="0" max="12" value="5" step="0.5"
+              oninput="onSimChange()">
+          </div>
+        </div>
+
+        <div class="sim-slider-group">
+          <div class="sim-slider-hd">
+            <span class="sim-slider-name"><span class="sim-slider-icon">💼</span> Work Hours</span>
+            <span class="sim-slider-val" id="ss-work-val">10.0h</span>
+          </div>
+          <div class="sim-track">
+            <div class="sim-fill" id="ss-work-fill" style="width:55.6%"></div>
+            <input class="sim-input" type="range" id="ss-work" min="2" max="18" value="10" step="0.5"
+              oninput="onSimChange()">
+          </div>
+        </div>
+
+        <div class="sim-slider-group">
+          <div class="sim-slider-hd">
+            <span class="sim-slider-name"><span class="sim-slider-icon">😤</span> Stress Level</span>
+            <span class="sim-slider-val" id="ss-stress-val">7</span>
+          </div>
+          <div class="sim-track">
+            <div class="sim-fill" id="ss-stress-fill" style="width:70%"></div>
+            <input class="sim-input" type="range" id="ss-stress" min="1" max="10" value="7" step="1"
+              oninput="onSimChange()">
+          </div>
+        </div>
+
+        <div class="sim-slider-group">
+          <div class="sim-slider-hd">
+            <span class="sim-slider-name"><span class="sim-slider-icon">☕</span> Energy Level</span>
+            <span class="sim-slider-val" id="ss-energy-val">4</span>
+          </div>
+          <div class="sim-track">
+            <div class="sim-fill" id="ss-energy-fill" style="width:40%"></div>
+            <input class="sim-input" type="range" id="ss-energy" min="1" max="10" value="4" step="1"
+              oninput="onSimChange()">
+          </div>
+        </div>
+
+        <div class="projection-card">
+          <div class="proj-delta" id="proj-delta">+0%</div>
+          <div class="proj-subtitle">Projected Improvement</div>
+          <div class="proj-detail" id="proj-detail">Baseline: — → Simulated: —</div>
+          <div class="proj-bar-wrap">
+            <span id="proj-base-label">Base</span>
+            <div class="proj-bar-track">
+              <div class="proj-bar-baseline" id="proj-bar-base" style="width:0%"></div>
+              <div class="proj-bar-current" id="proj-bar-curr" style="width:0%"></div>
+            </div>
+            <span id="proj-curr-label">Sim</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: RULES -->
+  <div class="tab-panel" id="tab-rules">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="background:rgba(124,108,255,.04)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--mono);font-size:13px;margin-bottom:4px">Rules Engine</div>
+            <div style="font-size:12px;color:var(--text3)">Toggle IF-THEN rules to see how they affect your system scores in real time.</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="rules-active-count">— active</div>
+        </div>
+      </div>
+      <div class="rules-grid" id="rules-grid"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TAB: HABIT TRACKER -->
+<div class="tab-panel" id="tab-tracker">
+  <div style="display:flex;flex-direction:column;gap:20px">
+
+    <!-- Improvement Banner -->
+    <div class="improve-banner flat" id="improve-banner">
+      <div class="improve-arrow" id="improve-arrow">→</div>
+      <div>
+        <div class="improve-big" id="improve-big">—</div>
+        <div class="improve-sub" id="improve-sub">Loading your progress…</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="improve-streak-label">Current Streak</div>
+        <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--accent)" id="improve-streak-num">0</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text3)">DAYS 🔥</div>
+      </div>
+    </div>
+
+    <!-- Top Stats -->
+    <div class="tracker-top">
+      <div class="tracker-stat">
+        <div class="tracker-stat-num" id="ts-today" style="color:var(--accent)">—</div>
+        <div class="tracker-stat-label">Today's Score</div>
+        <div class="tracker-stat-sub" id="ts-today-sub">No data yet</div>
+      </div>
+      <div class="tracker-stat">
+        <div class="tracker-stat-num" id="ts-avg7" style="color:var(--green)">—</div>
+        <div class="tracker-stat-label">7-Day Average</div>
+        <div class="tracker-stat-sub" id="ts-avg7-sub">Not enough data</div>
+      </div>
+      <div class="tracker-stat">
+        <div class="tracker-stat-num" id="ts-best" style="color:var(--yellow)">—</div>
+        <div class="tracker-stat-label">Personal Best</div>
+        <div class="tracker-stat-sub" id="ts-best-sub">Keep going</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:20px" id="tracker-main-grid">
+
+      <!-- LEFT: Day log -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Day log header -->
+        <div class="card">
+          <div class="day-log-header">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);display:flex;align-items:center;gap:8px">
+              <span style="width:5px;height:5px;border-radius:50%;background:var(--accent)"></span>Daily Activity Log
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="day-date-nav">
+                <button class="day-nav-btn" onclick="shiftLogDay(-1)">‹</button>
+                <span class="day-label" id="log-day-label">Today</span>
+                <button class="day-nav-btn" onclick="shiftLogDay(1)" id="btn-day-next">›</button>
+              </div>
+              <button class="btn-save-day" onclick="saveDay()">Save Day ✓</button>
+            </div>
+          </div>
+
+          <!-- Score ring -->
+          <div style="display:flex;align-items:center;gap:20px;margin:16px 0 12px">
+            <div class="day-score-ring">
+              <div class="ring-wrap">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border2)" stroke-width="8"/>
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--accent)" stroke-width="8"
+                    stroke-dasharray="251.2" stroke-dashoffset="251.2" id="ring-circle"
+                    stroke-linecap="round" style="transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1)"/>
+                </svg>
+                <div class="ring-center">
+                  <div class="ring-num" id="ring-num" style="color:var(--accent)">0</div>
+                  <div class="ring-lbl">pts</div>
+                </div>
+              </div>
+            </div>
+            <div style="flex:1">
+              <div style="font-family:var(--mono);font-size:13px;margin-bottom:4px" id="day-quality-label">No activities yet</div>
+              <div style="font-size:12px;color:var(--text2);line-height:1.6" id="day-quality-sub">Tap activities below to log your day.</div>
+              <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap" id="day-tags"></div>
+            </div>
+          </div>
+
+          <!-- Activity Grid -->
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">Activities</div>
+          <div class="activity-grid" id="activity-grid"></div>
+          <button onclick="openAddHabit()" style="margin-top:12px;width:100%;padding:10px;background:none;border:1px dashed var(--border2);border-radius:10px;color:var(--text3);font-family:var(--mono);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all .2s"
+            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">
+            + Add Custom Habit
+          </button>
+        </div>
+
+        <!-- AI Insight -->
+        <div class="card">
+          <div class="card-hd"><span class="card-hd-dot" style="color:var(--accent)"></span>Daily Insight</div>
+          <div class="ai-insight" id="ai-insight-box">Complete today's log and save to get your AI-generated daily insight.</div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: 7-week report + streaks -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- 7-week bar chart (iPhone screen time style) -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="card-hd" style="margin-bottom:0"><span class="card-hd-dot" style="color:var(--yellow)"></span>7-Week Report</div>
+            <div class="week-nav">
+              <button class="day-nav-btn" onclick="shiftWeek(-1)">‹</button>
+              <span class="week-range" id="week-range-label" style="font-size:10px;min-width:120px">This week</span>
+              <button class="day-nav-btn" onclick="shiftWeek(1)" id="btn-week-next">›</button>
+            </div>
+          </div>
+
+          <!-- Weekly avg badge -->
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:14px">
+            <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:var(--text)" id="week-avg-big">—</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">DAILY AVG</div>
+            <div style="margin-left:auto;font-family:var(--mono);font-size:11px" id="week-vs-prev"></div>
+          </div>
+
+          <!-- Bar chart -->
+          <div class="bar-chart-wrap" id="week-bars"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text3)">
+            <span>0</span><span>50</span><span>100 pts</span>
+          </div>
+        </div>
+
+        <!-- 7-week overview grid (like iPhone screen-time weeks) -->
+        <div class="card">
+          <div class="card-hd" style="margin-bottom:12px"><span class="card-hd-dot" style="color:var(--orange)"></span>Past 7 Weeks</div>
+          <div id="seven-week-grid" style="display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+
+        <!-- Habit Streaks -->
+        <div class="card">
+          <div class="card-hd"><span class="card-hd-dot" style="color:var(--green)"></span>Habit Streaks</div>
+          <div class="streak-list" id="streak-list"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TAB: AI ADVISOR -->
+<div class="tab-panel" id="tab-advisor">
+  <div style="display:flex;flex-direction:column;gap:0;height:calc(100vh - 60px)">
+    <!-- Advisor chat shell -->
+    <div class="advisor-shell">
+      <div class="advisor-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="advisor-avatar-big">🧠</div>
+          <div>
+            <div style="font-family:var(--mono);font-size:13px;color:var(--text)">LifeOS Advisor</div>
+            <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--text3);text-transform:uppercase">Adaptive — reads your bandwidth</div>
+          </div>
+        </div>
+        <div id="advisor-mode-badge" class="advisor-mode-chip mode-deep">DEEP MODE</div>
+      </div>
+      <div class="advisor-messages" id="advisor-messages"></div>
+      <div class="advisor-input-row">
+        <input class="advisor-input" id="advisor-input" placeholder="Talk to your advisor…" autocomplete="off">
+        <button class="advisor-send-btn" id="advisor-send" onclick="advisorSend()">↑</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Habit Modal -->
+<div class="modal-overlay" id="add-habit-modal">
+  <div class="modal-box">
+    <div class="modal-title">Add Custom Habit</div>
+    <div class="modal-row">
+      <div class="modal-label">Habit Name</div>
+      <input class="modal-input" id="habit-name-input" placeholder="e.g. Journaling" maxlength="30">
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">Choose Emoji</div>
+      <div class="emoji-picker" id="emoji-picker"></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">Points (1–20)</div>
+      <input class="modal-input" id="habit-pts-input" type="number" min="1" max="20" value="5">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeAddHabit()">Cancel</button>
+      <button class="btn-modal-save" onclick="saveNewHabit()">Add Habit →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-dot"></div>
+  <span id="toast-msg">System analysed</span>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────
+// DATA & CONFIG — money removed from NODES
+// ─────────────────────────────────────────────────────
+const NODES = ['sleep','energy','focus','output','stress','discipline'];
+const NODE_ICONS = {sleep:'🌙',energy:'⚡',focus:'🎯',output:'📊',stress:'🧠',discipline:'🔒'};
+const NODE_DESCRIPTIONS = {
+  sleep:'Foundation of all cognitive and physical recovery. 7–9h is optimal. Too little AND too much both impair function.',
+  energy:'Fuels focus, motivation, and physical capacity. Directly gated by sleep quality and consistency.',
+  focus:'Determines productive output quality. Fragmented by phone usage, stress, and overthinking.',
+  output:'The measurable result of disciplined, focused work. Drives self-worth and external results.',
+  stress:'The silent system killer. Zero stress means zero drive. High stress means total system collapse.',
+  discipline:'Self-control, habit consistency, and delayed-gratification capacity. Foundation of long-term output.',
+};
+
+// Dependency graph: A → B means A feeds into B
+const EDGES = {
+  sleep:     ['energy','stress'],
+  energy:    ['focus','output','discipline'],
+  focus:     ['output','discipline'],
+  output:    ['stress'],
+  stress:    ['sleep','focus','discipline'],
+  discipline:['output','focus'],
+};
+
+function countDownstream(node, visited=new Set()){
+  if(visited.has(node)) return 0;
+  visited.add(node);
+  return (EDGES[node]||[]).reduce((acc,n)=>acc+1+countDownstream(n,visited),0);
+}
+
+// ─────────────────────────────────────────────────────
+// RULES
+// ─────────────────────────────────────────────────────
+const RULES = [
+  {id:0,text:'If sleep < 6h → Reduce focus by −20',desc:'Sleep deprivation severely degrades cognitive capacity.',active:true,impact:'high',
+    fn:(u,s)=>{if(u.sleep<6){s.focus=Math.max(0,s.focus-20)} return s}},
+  {id:1,text:'If sleep > 9h → Reduce discipline by −10',desc:'Oversleeping often signals avoidance and reduces time for productive habits.',active:true,impact:'med',
+    fn:(u,s)=>{if(u.sleep>9){s.discipline=Math.max(0,s.discipline-10)} return s}},
+  {id:2,text:'If stress > 7 → Reduce sleep quality −15',desc:'High cortisol disrupts REM cycles and reduces restorative sleep.',active:true,impact:'high',
+    fn:(u,s)=>{if(u.stress>7){s.sleep=Math.max(0,s.sleep-15)} return s}},
+  {id:3,text:'If stress < 3 → Reduce output by −12',desc:'Zero stress = zero drive. Some pressure is necessary for performance.',active:true,impact:'med',
+    fn:(u,s)=>{if(u.stress<3){s.output=Math.max(0,s.output-12)} return s}},
+  {id:4,text:'If phone > 5h → Reduce focus by −25',desc:'Excessive screen time fragments attention and dopamine signaling.',active:true,impact:'high',
+    fn:(u,s)=>{if(u.phone>5){s.focus=Math.max(0,s.focus-25)} return s}},
+  {id:5,text:'If work > 12h → Raise stress by +20',desc:'Chronic overwork triggers burnout and stress hormone elevation.',active:true,impact:'high',
+    fn:(u,s)=>{if(u.work>12){s.stress=Math.min(100,s.stress+20)} return s}},
+  {id:6,text:'If work < 4h → Reduce discipline by −15',desc:'Too little work erodes work ethic and self-discipline over time.',active:true,impact:'med',
+    fn:(u,s)=>{if(u.work<4){s.discipline=Math.max(0,s.discipline-15)} return s}},
+  {id:7,text:'If sleep 7–9h → Boost energy by +15',desc:'Optimal sleep gives a significant energy and mood bonus.',active:true,impact:'med',
+    fn:(u,s)=>{if(u.sleep>=7&&u.sleep<=9){s.energy=Math.min(100,s.energy+15)} return s}},
+  {id:8,text:'If focus > 65 → Boost output by +20',desc:'Deep focus compounds work quality and accelerates goal completion.',active:true,impact:'med',
+    fn:(u,s)=>{if(s.focus>65){s.output=Math.min(100,s.output+20)} return s}},
+  {id:9,text:'If energy < 40 → Reduce output by −15',desc:'Low energy makes sustained effort nearly impossible.',active:true,impact:'med',
+    fn:(u,s)=>{if(s.energy<40){s.output=Math.max(0,s.output-15)} return s}},
+  {id:10,text:'If phone < 2h → Boost focus by +15',desc:'Minimal phone use allows deep work and sustained concentration.',active:false,impact:'low',
+    fn:(u,s)=>{if(u.phone<2){s.focus=Math.min(100,s.focus+15)} return s}},
+  {id:11,text:'If sleep < 5h → Raise stress by +25',desc:'Severe sleep deprivation is a major physiological stressor.',active:false,impact:'high',
+    fn:(u,s)=>{if(u.sleep<5){s.stress=Math.min(100,s.stress+25)} return s}},
+  {id:12,text:'If energy > 70 → Boost focus by +10',desc:'High energy state amplifies cognitive performance.',active:false,impact:'low',
+    fn:(u,s)=>{if(s.energy>70){s.focus=Math.min(100,s.focus+10)} return s}},
+  {id:13,text:'If discipline > 70 → Boost output by +15',desc:'High self-discipline translates directly to sustained output.',active:false,impact:'med',
+    fn:(u,s)=>{if(s.discipline>70){s.output=Math.min(100,s.output+15)} return s}},
+  {id:14,text:'If stress 4–6 → Boost focus by +8',desc:'Moderate stress (eustress) actually sharpens attention and urgency.',active:false,impact:'low',
+    fn:(u,s)=>{if(u.stress>=4&&u.stress<=6){s.focus=Math.min(100,s.focus+8)} return s}},
+];
+
+// ─────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────
+let userData = {};
+let scores = {};
+let baseScores = {};
+let bottleneck = {};
+let animFrame = null;
+let simAnimFrame = null;
+let lifeAnimFrame = null;
+let selectedProblems = [];
+
+// ─────────────────────────────────────────────────────
+// CONVERSATIONAL QUESTIONNAIRE ENGINE
+// ─────────────────────────────────────────────────────
+
+const QA = {
+  // Collected answers
+  answers: {},
+  // Current question index in the active flow
+  step: 0,
+  // All questions to be asked (built dynamically)
+  flow: [],
+  // Whether we've finished and shown results
+  done: false,
+
+  // ── Build the question flow ──
+  buildFlow() {
+    const a = this.answers;
+    const flow = [];
+
+    // === CORE QUESTIONS ===
+    flow.push({
+      id: 'sleep',
+      type: 'number',
+      q: "Let's start with recovery. How many hours of sleep do you typically get per night?",
+      suffix: 'hrs',
+      min: 1, max: 15, step: 0.5, placeholder: '7',
+      hint: v => {
+        const n = parseFloat(v);
+        if (!v || isNaN(n)) return '';
+        if (n < 5) return { text: '⚠ Critical — severe cognitive impairment below 5h', cls: 'warn' };
+        if (n < 6) return { text: '⚠ Too little — degrades focus, energy, immunity', cls: 'warn' };
+        if (n >= 7 && n <= 9) return { text: '✓ Optimal range — 7–9h is the sweet spot', cls: 'ok' };
+        if (n > 9) return { text: '⚠ Oversleeping — reduces drive & active time', cls: 'caution' };
+        return { text: '~ Borderline — aim for 7–9h for peak performance', cls: 'caution' };
+      }
+    });
+
+    // Sleep follow-up — always asked after sleep
+    flow.push({
+      id: 'sleep_quality',
+      type: 'scale',
+      q: () => {
+        const s = parseFloat(a.sleep);
+        if (s < 6) return `${s}h is on the lower end. When you do sleep, how would you rate the quality? (1 = very broken/restless, 10 = deep and refreshing)`;
+        if (s > 9) return `${s}h is quite a lot. How refreshed do you actually feel when you wake up? (1 = still exhausted, 10 = fully recharged)`;
+        return `How would you rate the quality of your sleep? (1 = very restless, 10 = deep and refreshing)`;
+      },
+      min: 1, max: 10,
+      labels: ['Restless/broken', 'Perfectly refreshing']
+    });
+
+    // Sleep follow-up for bad sleepers
+    flow.push({
+      id: 'sleep_blocker',
+      type: 'options',
+      condition: () => parseFloat(a.sleep) < 7 || parseInt(a.sleep_quality) < 5,
+      q: "What's usually the main thing that cuts your sleep short or ruins the quality?",
+      options: ['Late phone use', 'Stress / anxious thoughts', 'Work / deadlines', 'Can\'t wind down', 'Irregular schedule', 'I don\'t know']
+    });
+
+    flow.push({
+      id: 'energy',
+      type: 'scale',
+      q: "Now let's look at your energy throughout the day. How would you rate your average daily energy level? (1 = chronically drained, 10 = consistently energised)",
+      min: 1, max: 10,
+      labels: ['Chronically drained', 'Consistently energised']
+    });
+
+    // Energy follow-up for low energy
+    flow.push({
+      id: 'energy_crash',
+      type: 'options',
+      condition: () => parseInt(a.energy) <= 5,
+      q: "When does your energy tend to hit its lowest point?",
+      options: ['Morning (never wake up properly)', 'Post-lunch (afternoon crash)', 'Evening (worn out by end of day)', 'All day — consistently low', 'Unpredictable, it varies']
+    });
+
+    flow.push({
+      id: 'focus',
+      type: 'scale',
+      q: "How well can you maintain focused, deep work for extended periods? (1 = constant distraction, can't sustain attention, 10 = regularly achieve deep focus for 2+ hours)",
+      min: 1, max: 10,
+      labels: ['Constant distraction', 'Deep focus easily']
+    });
+
+    flow.push({
+      id: 'phone',
+      type: 'number',
+      q: "How many hours per day do you spend on your phone (social media, browsing, messaging combined)?",
+      suffix: 'hrs/day',
+      min: 0, max: 16, step: 0.5, placeholder: '4',
+      hint: v => {
+        const n = parseFloat(v);
+        if (!v || isNaN(n)) return '';
+        if (n > 7) return { text: '⚠ Very high — this is likely your #1 focus killer', cls: 'warn' };
+        if (n > 5) return { text: '⚠ Above average — severely damaging focus & discipline', cls: 'warn' };
+        if (n > 3) return { text: '~ Moderate — still impacting concentration meaningfully', cls: 'caution' };
+        if (n < 2) return { text: '✓ Low usage — this is a real cognitive advantage', cls: 'ok' };
+        return { text: '~ Manageable — monitor for passive scroll habits', cls: 'caution' };
+      }
+    });
+
+    // Phone follow-up for heavy users
+    flow.push({
+      id: 'phone_pattern',
+      type: 'options',
+      condition: () => parseFloat(a.phone) > 4,
+      q: `${parseFloat(a.phone || 0).toFixed(1)}h of phone use is significant. When does it happen most?`,
+      options: ['First thing in the morning', 'During work hours (distraction)', 'Instead of sleeping', 'Boredom / procrastination', 'All of the above']
+    });
+
+    flow.push({
+      id: 'work',
+      type: 'number',
+      q: "How many hours per day do you spend on actual work or focused productive activity?",
+      suffix: 'hrs/day',
+      min: 0, max: 20, step: 0.5, placeholder: '8',
+      hint: v => {
+        const n = parseFloat(v);
+        if (!v || isNaN(n)) return '';
+        if (n < 3) return { text: '⚠ Very low — likely eroding discipline and self-worth', cls: 'warn' };
+        if (n < 5) return { text: '~ Low — building up to 6–8h would improve output significantly', cls: 'caution' };
+        if (n >= 6 && n <= 10) return { text: '✓ Healthy range — sustainable performance zone', cls: 'ok' };
+        if (n > 12) return { text: '⚠ Overwork zone — stress and burnout risk is high', cls: 'warn' };
+        return { text: '~ Elevated — watch your stress and recovery closely', cls: 'caution' };
+      }
+    });
+
+    // Work quality follow-up
+    flow.push({
+      id: 'work_quality',
+      type: 'options',
+      q: "Of the time you spend working, how much of it feels genuinely productive vs just being busy?",
+      options: ['Mostly productive (70–100%)', 'Half-half (around 50%)', 'Mostly wasted on low-value tasks (<40%)', 'Hard to tell — I just push through']
+    });
+
+    flow.push({
+      id: 'stress',
+      type: 'scale',
+      q: "What's your current stress level? (1 = completely calm/no pressure, 10 = constantly overwhelmed)",
+      min: 1, max: 10,
+      labels: ['No pressure at all', 'Constantly overwhelmed']
+    });
+
+    // Stress follow-up
+    flow.push({
+      id: 'stress_source',
+      type: 'options',
+      condition: () => parseInt(a.stress) >= 6,
+      q: "What's the dominant source of that stress?",
+      options: ['Workload / deadlines', 'Financial pressure', 'Relationships', 'Uncertainty about the future', 'Internal pressure / perfectionism', 'Multiple things piling up']
+    });
+
+    // Low stress follow-up
+    flow.push({
+      id: 'stress_low',
+      type: 'options',
+      condition: () => parseInt(a.stress) <= 3,
+      q: "Very low stress can mean you're in a calm, optimal state — or it can mean you lack urgency. Which resonates more?",
+      options: ['I\'m genuinely in a good headspace', 'I feel unmotivated / lack direction', 'I\'m avoiding things rather than dealing with them', 'I recently burned out and I\'m recovering']
+    });
+
+    flow.push({
+      id: 'discipline',
+      type: 'scale',
+      q: "How consistent are you with your habits and routines? (1 = very inconsistent, quit everything quickly, 10 = highly disciplined, rarely break commitments)",
+      min: 1, max: 10,
+      labels: ['Very inconsistent', 'Highly disciplined']
+    });
+
+    // Discipline follow-up for low discipline
+    flow.push({
+      id: 'discipline_blocker',
+      type: 'options',
+      condition: () => parseInt(a.discipline) <= 5,
+      q: "What usually breaks your habits or routine?",
+      options: ['Motivation runs out quickly', 'Stress derails everything', 'I start strong but can\'t maintain it', 'No clear system or schedule', 'Impulsive behavior overrides plans', 'Lack of accountability']
+    });
+
+    flow.push({
+      id: 'output',
+      type: 'scale',
+      q: "How satisfied are you with what you actually produce and achieve day-to-day? (1 = feel like nothing gets done, 10 = consistently hitting goals)",
+      min: 1, max: 10,
+      labels: ['Nothing gets done', 'Consistently hitting goals']
+    });
+
+    // Output follow-up
+    flow.push({
+      id: 'output_gap',
+      type: 'options',
+      condition: () => parseInt(a.output) <= 5,
+      q: "What do you think is the main reason your output isn't where you want it?",
+      options: ['Can\'t focus long enough', 'Not enough time / too many obligations', 'Low energy — don\'t have the fuel', 'Poor planning / don\'t know what to work on', 'Procrastination and avoidance', 'All of the above']
+    });
+
+    // Problems multi-select
+    flow.push({
+      id: 'problems',
+      type: 'multiselect',
+      q: "Last one: select all the recurring issues that feel true for you. Be honest — this shapes the recommendations.",
+      options: ['Procrastination','Poor sleep','Low energy','Overwhelm','Phone addiction','Lack of focus','Anxiety','Missed goals','No motivation','Overthinking','Self-discipline','Wasting time','Social pressure','Inconsistent routine','Impulsive decisions','Negative self-talk','Anger / Irritability']
+    });
+
+    // Filter out conditional questions whose condition isn't met
+    this.flow = flow.filter(q => !q.condition || q.condition());
+  },
+
+  // ── Render a system message with typing delay ──
+  showMessage(text, delay = 0) {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const msgs = document.getElementById('qa-messages');
+        // Typing indicator
+        const typing = document.createElement('div');
+        typing.className = 'qa-typing qa-msg-system';
+        typing.innerHTML = `
+          <div class="qa-avatar">🧠</div>
+          <div class="qa-bubble-system">
+            <div class="qa-typing-dots"><span></span><span></span><span></span></div>
+          </div>`;
+        msgs.appendChild(typing);
+        msgs.scrollTop = msgs.scrollHeight;
+
+        setTimeout(() => {
+          msgs.removeChild(typing);
+          const msg = document.createElement('div');
+          msg.className = 'qa-msg-system';
+          msg.innerHTML = `
+            <div class="qa-avatar">🧠</div>
+            <div class="qa-bubble-system">${text}</div>`;
+          msgs.appendChild(msg);
+          msgs.scrollTop = msgs.scrollHeight;
+          resolve();
+        }, 700 + Math.min(text.length * 12, 800));
+      }, delay);
+    });
+  },
+
+  // ── Show user's answer as a bubble ──
+  showUserBubble(text) {
+    const msgs = document.getElementById('qa-messages');
+    const msg = document.createElement('div');
+    msg.className = 'qa-msg-user';
+    msg.innerHTML = `<div class="qa-bubble-user">${text}</div>`;
+    msgs.appendChild(msg);
+    msgs.scrollTop = msgs.scrollHeight;
+  },
+
+  // ── Render an input zone for a question ──
+  renderInput(q) {
+    const zone = document.getElementById('qa-input-zone');
+    zone.innerHTML = '';
+
+    if (q.type === 'number') {
+      zone.innerHTML = `
+        <div class="qa-input-area">
+          <div class="qa-num-row">
+            <input class="qa-num-input" id="qa-num" type="number" min="${q.min}" max="${q.max}"
+              step="${q.step}" placeholder="${q.placeholder}" autocomplete="off">
+            <span class="qa-num-suffix">${q.suffix}</span>
+          </div>
+          <div class="qa-num-hint" id="qa-num-hint"></div>
+          <button class="qa-continue-btn" id="qa-btn" onclick="QA.submitNumber()">Continue →</button>
+        </div>`;
+      const inp = document.getElementById('qa-num');
+      inp.oninput = () => {
+        const v = inp.value;
+        if (q.hint) {
+          const h = q.hint(v);
+          const hint = document.getElementById('qa-num-hint');
+          if (h) { hint.textContent = h.text; hint.className = `qa-num-hint ${h.cls}`; }
+          else { hint.textContent = ''; hint.className = 'qa-num-hint'; }
+        }
+        document.getElementById('qa-btn').classList.toggle('ready', !!v && v >= q.min && v <= q.max);
+      };
+      inp.onkeydown = e => { if (e.key === 'Enter') QA.submitNumber(); };
+      setTimeout(() => inp.focus(), 100);
+    }
+
+    else if (q.type === 'scale') {
+      const btns = Array.from({ length: q.max - q.min + 1 }, (_, i) => i + q.min);
+      zone.innerHTML = `
+        <div class="qa-input-area">
+          <div class="qa-scale">${btns.map(n =>
+            `<button class="qa-scale-btn" onclick="QA.selectScale(${n}, this)">${n}</button>`
+          ).join('')}</div>
+          <div class="qa-scale-labels"><span>${q.labels[0]}</span><span>${q.labels[1]}</span></div>
+          <button class="qa-continue-btn" id="qa-btn" onclick="QA.submitScale()">Continue →</button>
+        </div>`;
+    }
+
+    else if (q.type === 'options') {
+      zone.innerHTML = `
+        <div class="qa-input-area">
+          <div class="qa-opt-hint">Choose one</div>
+          <div class="qa-options">${q.options.map(o =>
+            `<div class="qa-opt" onclick="QA.selectOption(this, '${o.replace(/'/g,"\\'")}')"> ${o}</div>`
+          ).join('')}</div>
+          <button class="qa-continue-btn" id="qa-btn" onclick="QA.submitOption()">Continue →</button>
+        </div>`;
+    }
+
+    else if (q.type === 'multiselect') {
+      zone.innerHTML = `
+        <div class="qa-input-area">
+          <div class="qa-opt-hint">Select all that apply (or skip)</div>
+          <div class="qa-multi-chips">${q.options.map(o =>
+            `<div class="qa-chip" onclick="QA.toggleChip(this, '${o.replace(/'/g,"\\'")}')">  ${o}</div>`
+          ).join('')}</div>
+          <button class="qa-continue-btn ready" id="qa-btn" onclick="QA.submitMulti()">Continue →</button>
+        </div>`;
+    }
+  },
+
+  selectScale(val, el) {
+    document.querySelectorAll('.qa-scale-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    el.dataset.val = val;
+    this._scaleVal = val;
+    document.getElementById('qa-btn').classList.add('ready');
+  },
+
+  selectOption(el, val) {
+    document.querySelectorAll('.qa-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    this._optVal = val;
+    document.getElementById('qa-btn').classList.add('ready');
+  },
+
+  toggleChip(el, val) {
+    el.classList.toggle('sel');
+    // Always ready (can skip)
+  },
+
+  submitNumber() {
+    const inp = document.getElementById('qa-num');
+    const v = parseFloat(inp.value);
+    const q = this.flow[this.step];
+    if (!inp.value || isNaN(v)) return;
+    this.answers[q.id] = v;
+    this.showUserBubble(`${v} ${q.suffix}`);
+    this.nextStep();
+  },
+
+  submitScale() {
+    if (this._scaleVal === undefined) return;
+    const q = this.flow[this.step];
+    this.answers[q.id] = this._scaleVal;
+    this.showUserBubble(`${this._scaleVal} / ${q.max}`);
+    this._scaleVal = undefined;
+    this.nextStep();
+  },
+
+  submitOption() {
+    if (!this._optVal) return;
+    const q = this.flow[this.step];
+    this.answers[q.id] = this._optVal;
+    this.showUserBubble(this._optVal);
+    this._optVal = undefined;
+    this.nextStep();
+  },
+
+  submitMulti() {
+    const q = this.flow[this.step];
+    const selected = [...document.querySelectorAll('.qa-chip.sel')].map(c => c.textContent.trim());
+    this.answers[q.id] = selected;
+    selectedProblems = selected.slice();
+    const label = selected.length ? selected.slice(0, 3).join(', ') + (selected.length > 3 ? ` +${selected.length - 3}` : '') : 'None selected';
+    this.showUserBubble(label || 'None selected');
+    this.nextStep();
+  },
+
+  // ── Advance to next question or show results ──
+  async nextStep() {
+    // Re-build flow after each answer in case conditions changed
+    const prevLen = this.flow.length;
+    this.buildFlow();
+
+    this.step++;
+
+    // Update progress
+    document.getElementById('qa-progress').style.width = Math.round((this.step / this.flow.length) * 100) + '%';
+
+    if (this.step >= this.flow.length) {
+      await this.showResults();
+      return;
+    }
+
+    const q = this.flow[this.step];
+    const qText = typeof q.q === 'function' ? q.q() : q.q;
+
+    // Transition message based on previous answer context
+    const commentary = this.getCommentary(this.flow[this.step - 1].id);
+    if (commentary) {
+      await this.showMessage(commentary);
+      await this.showMessage(qText, 200);
+    } else {
+      await this.showMessage(qText);
+    }
+
+    document.getElementById('qa-input-zone').innerHTML = '';
+    this.renderInput(q);
+  },
+
+  // ── Contextual follow-up commentary ──
+  getCommentary(prevId) {
+    const a = this.answers;
+    const comments = {
+      sleep: () => {
+        const s = parseFloat(a.sleep);
+        if (s < 6) return `⚠️ ${s}h is genuinely low — that's likely rippling into every other system. Let's dig into why.`;
+        if (s > 9) return `${s}h is a lot — sometimes oversleeping is a sign of something else going on. Let's check.`;
+        if (s >= 7 && s <= 9) return `Good — ${s}h puts you in the optimal window. Let's see how well it's actually working for you.`;
+        return null;
+      },
+      sleep_quality: () => {
+        const q = parseInt(a.sleep_quality);
+        if (q <= 4) return `Low quality sleep even when the hours are there — that usually means something is breaking it. Let's identify what.`;
+        return null;
+      },
+      energy: () => {
+        const e = parseInt(a.energy);
+        if (e <= 4) return `Energy at ${e}/10 is quite low. That's going to constrain everything else. Let's see where the drain is.`;
+        if (e >= 8) return `Good energy levels — that's a strong foundation. Now let's check if it's translating into focus.`;
+        return null;
+      },
+      focus: () => {
+        const f = parseInt(a.focus);
+        const p = parseFloat(a.phone);
+        if (f <= 4 && p > 5) return `Focus at ${f}/10 with ${p}h of phone use — there's likely a direct connection there. Let's verify.`;
+        if (f <= 4) return `${f}/10 focus is a significant constraint on your output. This is worth tracking the source of.`;
+        return null;
+      },
+      phone: () => {
+        const p = parseFloat(a.phone);
+        if (p > 6) return `${p}h/day is your attention being consumed. Let's track exactly when it happens.`;
+        return null;
+      },
+      work: () => {
+        const w = parseFloat(a.work);
+        if (w > 12) return `${w}h/day is overwork territory — long-term that raises stress and crashes output. Let me understand the quality next.`;
+        return null;
+      },
+      stress: () => {
+        const s = parseInt(a.stress);
+        if (s >= 8) return `Stress at ${s}/10 is in the red zone — it's not just discomfort, it actively damages sleep, focus and discipline. Let's find the source.`;
+        if (s <= 3) return `Very low stress — interesting. That can be a good sign or a warning sign depending on the context.`;
+        return null;
+      },
+      discipline: () => {
+        const d = parseInt(a.discipline);
+        if (d <= 4) return `Discipline at ${d}/10 is a key leverage point — it sits downstream of stress and sleep. Good news: the system approach fixes the root cause.`;
+        return null;
+      },
+      output: () => {
+        const o = parseInt(a.output);
+        if (o <= 4) return `Output at ${o}/10 is where things get visible — you feel it most here. Let's trace back to why.`;
+        return null;
+      }
+    };
+    const fn = comments[prevId];
+    return fn ? fn() : null;
+  },
+
+  // ── Build computed scores from QA answers ──
+  computeUserData() {
+    const a = this.answers;
+    // Sleep hours (direct)
+    const sleep = parseFloat(a.sleep) || 6;
+    // Phone hours (direct)
+    const phone = parseFloat(a.phone) || 5;
+    // Work hours (direct)
+    const work = parseFloat(a.work) || 8;
+    // Stress: direct scale 1-10
+    const stress = parseInt(a.stress) || 6;
+    // Energy: direct scale 1-10
+    const energy = parseInt(a.energy) || 5;
+
+    return { sleep, phone, work, stress, energy, problems: a.problems || [] };
+  },
+
+  // ── Show the final analysis results screen ──
+  async showResults() {
+    this.done = true;
+    document.getElementById('qa-progress').style.width = '100%';
+    document.getElementById('qa-input-zone').innerHTML = '';
+
+    // Compute scores
+    const ud = this.computeUserData();
+    const base = computeBaseScores(ud);
+    const sc = applyRules(ud, base);
+    const health = systemHealth(sc);
+    const bn = detectBottleneck(sc);
+
+    // Set global userData for dashboard
+    userData = { ...ud, problems: selectedProblems };
+
+    await this.showMessage(`Analysis complete. I've built a profile from your ${this.flow.length} answers. Here's what your system looks like right now.`);
+
+    // Build results card
+    const msgs = document.getElementById('qa-messages');
+    const resultCard = document.createElement('div');
+    resultCard.className = 'qa-results';
+
+    const areas = [
+      { icon: NODE_ICONS.sleep,      name: 'Sleep',      score: sc.sleep },
+      { icon: NODE_ICONS.energy,     name: 'Energy',     score: sc.energy },
+      { icon: NODE_ICONS.focus,      name: 'Focus',      score: sc.focus },
+      { icon: NODE_ICONS.output,     name: 'Output',     score: sc.output },
+      { icon: NODE_ICONS.stress,     name: 'Stress Bal', score: sc.stress },
+      { icon: NODE_ICONS.discipline, name: 'Discipline', score: sc.discipline },
+    ];
+
+    const healthCol = health >= 65 ? '#1de8a0' : health >= 40 ? '#f5c642' : '#ff4a4a';
+
+    resultCard.innerHTML = `
+      <div class="qa-result-title">System Analysis · Health Score: <span style="color:${healthCol};font-family:var(--mono);font-size:13px">${health}/100</span></div>
+      ${areas.map(a => {
+        const col = nodeColor(a.score);
+        const status = a.score >= 65 ? 'healthy' : a.score >= 40 ? 'warning' : 'critical';
+        return `<div class="qa-area-row">
+          <div class="qa-area-icon">${a.icon}</div>
+          <div class="qa-area-name">${a.name}</div>
+          <div class="qa-area-bar"><div class="qa-area-fill" style="width:0%;background:${col}" data-w="${a.score}"></div></div>
+          <div class="qa-area-score" style="color:${col}">${a.score}</div>
+          <div class="qa-area-status status-${status}">${status}</div>
+        </div>`;
+      }).join('')}
+      <div class="qa-bottleneck-alert">
+        <span style="font-size:22px">${NODE_ICONS[bn.node]}</span>
+        <div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--red);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">⚠ Critical Bottleneck: ${bn.node}</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.55">${bn.explanation}</div>
+        </div>
+      </div>
+      ${this._buildInsightText(ud, sc, bn)}
+      <button class="qa-btn-launch" onclick="QA.launch()">⚡ &nbsp; Open Full Dashboard →</button>
+    `;
+
+    msgs.appendChild(resultCard);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Animate bars
+    setTimeout(() => {
+      resultCard.querySelectorAll('.qa-area-fill').forEach(el => {
+        el.style.transition = 'width 1s cubic-bezier(.4,0,.2,1)';
+        el.style.width = el.dataset.w + '%';
+      });
+    }, 100);
+  },
+
+  _buildInsightText(ud, sc, bn) {
+    const a = this.answers;
+    const weakAreas = Object.entries(sc).filter(([k, v]) => v < 45).map(([k]) => k);
+    const critCount = weakAreas.length;
+
+    let lines = [];
+    if (critCount === 0) {
+      lines.push(`Your system is reasonably balanced. The bottleneck is <strong>${bn.node}</strong> — improving it unlocks ${bn.downstream} downstream areas.`);
+    } else {
+      lines.push(`You have <strong>${critCount} critical area${critCount > 1 ? 's' : ''}</strong>. The bottleneck is <strong>${bn.node}</strong> — fix this first and ${bn.downstream} domains improve automatically.`);
+    }
+
+    // Sleep insight
+    const s = parseFloat(a.sleep);
+    if (s < 6) lines.push(`Your ${s}h sleep is the foundation of the problem. The fix plan will address this first.`);
+
+    // Phone insight
+    const p = parseFloat(a.phone);
+    if (p > 5) lines.push(`${p}h/day of phone use is fragmenting your attention — it's likely the #1 external drag on your focus score.`);
+
+    // Stress
+    const st = parseInt(a.stress);
+    if (st >= 8) lines.push(`Chronic stress at ${st}/10 is a system-wide infection — it degrades sleep, focus, and discipline simultaneously.`);
+
+    return `<div class="qa-insight-box">${lines.join(' ')}</div>`;
+  },
+
+  // ── Launch the dashboard ──
+  launch() {
+    launchDashboard();
+  },
+
+  // ── Kick off the questionnaire ──
+  async start() {
+    this.buildFlow();
+    this.step = 0;
+    this.answers = {};
+    this._scaleVal = undefined;
+    this._optVal = undefined;
+
+    const q = this.flow[0];
+    const qText = typeof q.q === 'function' ? q.q() : q.q;
+
+    await this.showMessage("Hey — I'm going to ask you a series of questions about your daily patterns. Based on your answers, I'll identify exactly where your system is breaking down and what to fix first.", 0);
+    await this.showMessage(qText, 300);
+    this.renderInput(q);
+  }
+};
+
+// Start the questionnaire on load
+document.addEventListener('DOMContentLoaded', () => QA.start());
+
+// ─────────────────────────────────────────────────────
+// SCORING ENGINE — discipline added, money removed
+// ─────────────────────────────────────────────────────
+function computeBaseScores(u){
+  // Sleep: 7-9h is OPTIMAL sweet spot. Below 6h or above 10h both penalise.
+  let sleepRaw;
+  if(u.sleep >= 7 && u.sleep <= 9) sleepRaw = 100;
+  else if(u.sleep >= 6 && u.sleep < 7) sleepRaw = 75;
+  else if(u.sleep > 9 && u.sleep <= 10) sleepRaw = 80;
+  else if(u.sleep < 6) sleepRaw = Math.max(10, (u.sleep/6)*70);
+  else sleepRaw = Math.max(30, 100 - (u.sleep - 10)*15); // >10h penalised
+  const sleep = Math.min(100, Math.round(sleepRaw));
+
+  const energy = Math.min(100, Math.round(((u.energy||5)/10)*100));
+
+  // Focus: hurt by phone, helped by energy
+  const focus = Math.min(100, Math.round(Math.max(0, (1-(u.phone/12))*75 + energy*0.25)));
+
+  // Output: driven by focus, sleep, discipline
+  const output = Math.min(100, Math.round(focus*0.55 + sleep*0.3 + energy*0.15));
+
+  // Stress: sweet spot 4–6, penalised at both extremes
+  let stressRaw;
+  const sv = u.stress;
+  if(sv >= 4 && sv <= 6) stressRaw = 90; // eustress zone
+  else if(sv < 4) stressRaw = 60 + (sv/4)*30; // too relaxed, low drive
+  else stressRaw = Math.max(5, 100 - ((sv-6)/4)*95 - (Math.max(0,u.work-10)*3));
+  const stress = Math.min(100, Math.round(stressRaw));
+
+  // Discipline: penalised by too much phone, too little or too much work
+  const workPenalty = u.work < 4 ? 20 : u.work > 12 ? 15 : 0;
+  const phonePenalty = u.phone > 6 ? (u.phone-6)*5 : 0;
+  const discipline = Math.min(100, Math.max(10, Math.round(
+    50 + (focus*0.3) + (stress/100)*20 - workPenalty - phonePenalty
+  )));
+
+  return {sleep, energy, focus, output, stress, discipline};
+}
+
+function applyRules(u, s){
+  const sc = {...s};
+  RULES.forEach(r=>{ if(r.active) r.fn(u,sc); });
+  Object.keys(sc).forEach(k=>{ sc[k]=Math.max(0,Math.min(100,Math.round(sc[k]))); });
+  return sc;
+}
+
+function detectBottleneck(sc){
+  let worst = null; let worstScore = Infinity; let worstImpact = 0;
+  NODES.forEach(n=>{
+    const downstream = countDownstream(n);
+    const score = sc[n];
+    const impact = (1 - score/100)*0.6 + (downstream/5)*0.4;
+    if(score < 45 && impact > worstImpact){ worst=n; worstScore=score; worstImpact=impact; }
+    else if(!worst && score < worstScore){ worst=n; worstScore=score; worstImpact=impact; }
+  });
+  const downstream = countDownstream(worst||'sleep');
+  const impactPct = Math.round(worstImpact*100);
+  const msgs = {
+    sleep:`Sleep is your root failure. It's degrading ${downstream} downstream systems.`,
+    energy:`Low energy is your core constraint — it starves every domain that depends on it.`,
+    focus:`Fragmented focus is eating your output. High phone use or stress is the culprit.`,
+    output:`Your output is bottlenecked — cascading stress follows when results don't show.`,
+    stress:`Stress levels are in a dangerous zone — actively sabotaging sleep, focus, and discipline.`,
+    discipline:`Low self-discipline is blocking sustainable output. Habits and consistency need work.`,
+  };
+  // Tradeoff messages: warn when fixing one thing may hurt another
+  const tradeoffs = {
+    sleep:`Fixing sleep alone isn't enough — if you sleep MORE than 9h, you reduce active discipline time. Aim for quality, not just quantity.`,
+    stress:`Be careful: lowering stress too much removes drive. Aim for a 4–6 "eustress" zone, not zero.`,
+    output:`Pushing output without fixing stress first will create a burnout loop. Fix the root cause.`,
+    discipline:`Discipline built on willpower alone breaks under high stress. Fix stress → discipline follows.`,
+    energy:``,
+    focus:``,
+  };
+  return {node:worst||'stress',score:worstScore||50,impactScore:impactPct,explanation:msgs[worst||'stress'],tradeoff:tradeoffs[worst||'stress']||'',downstream};
+}
+
+function systemHealth(sc){
+  const weights = {sleep:0.2,energy:0.15,focus:0.2,output:0.2,stress:0.15,discipline:0.1};
+  return Math.round(NODES.reduce((acc,n)=>acc+sc[n]*(weights[n]||0.1),0));
+}
+
+function buildRootCauseChain(sc){
+  const sorted = [...NODES].sort((a,b)=>sc[a]-sc[b]);
+  return sorted.slice(0,4);
+}
+
+function runScoring(u){
+  const base = computeBaseScores(u);
+  scores = applyRules(u, base);
+  bottleneck = detectBottleneck(scores);
+}
+
+// ─────────────────────────────────────────────────────
+// ACTION RECOMMENDATIONS (what to reduce / increase)
+// ─────────────────────────────────────────────────────
+function buildActionRecommendations(u, sc){
+  const actions = [];
+
+  // Sleep
+  if(u.sleep > 9) actions.push({tag:'reduce',label:'Sleep',detail:`You're sleeping ${u.sleep}h. Sleeping >9h reduces discipline and productive time. Target 7–9h.`});
+  else if(u.sleep < 6) actions.push({tag:'increase',label:'Sleep',detail:`Only ${u.sleep}h — below 6h severely damages focus and energy. Increase to 7h minimum.`});
+
+  // Work
+  if(u.work > 12) actions.push({tag:'reduce',label:'Work Hours',detail:`${u.work}h/day is overwork territory. Raises stress by +20 and kills sustainable output. Cut to 8–10h.`});
+  else if(u.work < 4) actions.push({tag:'increase',label:'Work Hours',detail:`Only ${u.work}h/day. Too little work erodes discipline and drive. Build up to at least 6h.`});
+
+  // Phone
+  if(u.phone > 5) actions.push({tag:'reduce',label:'Phone Usage',detail:`${u.phone}h/day of phone use destroys focus. Each extra hour costs ~8 focus points. Target <3h.`});
+  else if(u.phone < 1) actions.push({tag:'balance',label:'Phone Usage',detail:`Very low phone use. Ensure you're not socially isolated — balance is key.`});
+
+  // Stress
+  if(u.stress >= 8) actions.push({tag:'reduce',label:'Stress',detail:`Stress at ${u.stress}/10 is chronic. This is cascading into sleep loss, focus loss, and discipline breakdown.`});
+  else if(u.stress <= 2) actions.push({tag:'increase',label:'Drive/Urgency',detail:`Stress at ${u.stress}/10 — too relaxed. You may lack goals or urgency. Moderate pressure improves output.`});
+
+  // Score-based
+  if(sc.discipline < 45) actions.push({tag:'increase',label:'Discipline',detail:`Discipline score is critical (${sc.discipline}). Build one daily keystone habit first — not multiple.`});
+  if(sc.focus < 40) actions.push({tag:'increase',label:'Focus',detail:`Focus is critical (${sc.focus}). Identify your peak hours and protect them with zero distractions.`});
+  if(sc.energy < 40) actions.push({tag:'increase',label:'Energy',detail:`Energy is critically low (${sc.energy}). Check sleep, nutrition, and movement — these are the energy inputs.`});
+
+  // Problem-specific
+  if(selectedProblems.includes('Overthinking')) actions.push({tag:'reduce',label:'Mental Loops',detail:`You flagged overthinking. Try time-boxing decisions: give yourself 5 minutes max per decision under X threshold.`});
+  if(selectedProblems.includes('Money handling')) actions.push({tag:'balance',label:'Financial Stress',detail:`Money handling issues often compound stress. A weekly 30-min budget audit can reduce background anxiety.`});
+  if(selectedProblems.includes('Self-discipline')) actions.push({tag:'increase',label:'Self-discipline',detail:`Focus on one habit at a time. Willpower is finite — environment design beats motivation every time.`});
+  if(selectedProblems.includes('Impulsive decisions')) actions.push({tag:'reduce',label:'Impulsivity',detail:`Impulsive decisions spike under stress. Lower stress first, then implement a 24h rule for non-urgent choices.`});
+
+  return actions;
+}
+
+// ─────────────────────────────────────────────────────
+// COLORS
+// ─────────────────────────────────────────────────────
+function nodeColor(sc){
+  if(sc>=65) return '#1de8a0';
+  if(sc>=40) return '#f5c642';
+  return '#ff4a4a';
+}
+
+// ─────────────────────────────────────────────────────
+// NODE POSITIONS (no money node)
+// ─────────────────────────────────────────────────────
+const NODE_POSITIONS = {
+  sleep:      {fx:0.20,fy:0.22},
+  energy:     {fx:0.50,fy:0.15},
+  focus:      {fx:0.80,fy:0.28},
+  output:     {fx:0.80,fy:0.65},
+  stress:     {fx:0.20,fy:0.65},
+  discipline: {fx:0.50,fy:0.82},
+};
+
+function drawGraph(){
+  const canvas = document.getElementById('graph-canvas');
+  if(!canvas) return;
+  const W = canvas.offsetWidth; const H = canvas.height;
+  canvas.width = W;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  ctx.strokeStyle='rgba(255,255,255,.02)';
+  ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  const positions = {};
+  NODES.forEach(n=>{
+    positions[n]={x:NODE_POSITIONS[n].fx*W, y:NODE_POSITIONS[n].fy*H};
+  });
+
+  Object.entries(EDGES).forEach(([from,tos])=>{
+    tos.forEach(to=>{
+      const p1=positions[from]; const p2=positions[to];
+      if(!p1||!p2) return;
+      const col = nodeColor(scores[from]||50);
+      const dx=p2.x-p1.x; const dy=p2.y-p1.y;
+      const len=Math.sqrt(dx*dx+dy*dy);
+      const r=34;
+      const sx=p1.x+(dx/len)*r; const sy=p1.y+(dy/len)*r;
+      const ex=p2.x-(dx/len)*r; const ey=p2.y-(dy/len)*r;
+
+      ctx.save();
+      ctx.shadowColor=col; ctx.shadowBlur=4;
+      ctx.strokeStyle=col; ctx.globalAlpha=0.25; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle=col; ctx.globalAlpha=0.6; ctx.lineWidth=1.5;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+      ctx.setLineDash([]);
+
+      const ang=Math.atan2(ey-sy,ex-sx);
+      ctx.fillStyle=col; ctx.globalAlpha=0.7;
+      ctx.beginPath();
+      ctx.moveTo(ex,ey);
+      ctx.lineTo(ex-10*Math.cos(ang-0.35),ey-10*Math.sin(ang-0.35));
+      ctx.lineTo(ex-10*Math.cos(ang+0.35),ey-10*Math.sin(ang+0.35));
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    });
+  });
+
+  NODES.forEach(n=>{
+    const {x,y}=positions[n];
+    const sc=scores[n]||0;
+    const col=nodeColor(sc);
+    const isBn = bottleneck.node===n;
+    const r=34;
+
+    ctx.save();
+    if(isBn){
+      ctx.shadowColor=col; ctx.shadowBlur=28;
+      ctx.strokeStyle=col; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(x,y,r+6,0,Math.PI*2);
+      ctx.globalAlpha=0.15+(0.1*Math.sin(Date.now()/400));
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha=1;
+    const grad=ctx.createRadialGradient(x-r*0.3,y-r*0.3,2,x,y,r);
+    grad.addColorStop(0,isBn?'rgba(255,74,74,.25)':'rgba(124,108,255,.15)');
+    grad.addColorStop(1,isBn?'rgba(255,74,74,.06)':'rgba(124,108,255,.04)');
+    ctx.fillStyle=grad;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+
+    ctx.strokeStyle=col; ctx.lineWidth=isBn?2.5:1.5; ctx.globalAlpha=0.9;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.font='18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=col; ctx.globalAlpha=0.9;
+    ctx.fillText(NODE_ICONS[n],x,y-6);
+    ctx.restore();
+
+    ctx.save();
+    ctx.font='bold 12px "IBM Plex Mono",monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'; ctx.globalAlpha=0.85;
+    ctx.fillText(sc,x,y+11);
+    ctx.restore();
+
+    ctx.save();
+    ctx.font=`${isBn?'bold ':''}11px "IBM Plex Mono",monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle=isBn?col:'#8888aa'; ctx.globalAlpha=0.95;
+    ctx.fillText(n.toUpperCase(),x,y+r+6);
+    ctx.restore();
+  });
+
+  animFrame=requestAnimationFrame(drawGraph);
+}
+
+// ─────────────────────────────────────────────────────
+// LIFE MAP — force-directed
+// ─────────────────────────────────────────────────────
+let nodeVel = {};
+let nodePos = {};
+let lifeMapInited = false;
+
+function initLifeMap(W,H){
+  const cx=W/2, cy=H/2, rad=Math.min(W,H)*0.3;
+  NODES.forEach((n,i)=>{
+    const ang=(i/NODES.length)*Math.PI*2-Math.PI/2;
+    nodePos[n]={x:cx+rad*Math.cos(ang), y:cy+rad*Math.sin(ang)};
+    nodeVel[n]={x:0,y:0};
+  });
+  lifeMapInited=true;
+}
+
+function drawLifeMap(){
+  const canvas=document.getElementById('lifemap-canvas');
+  if(!canvas||!document.getElementById('tab-lifemap').classList.contains('active')) return;
+  const W=canvas.offsetWidth; const H=canvas.height;
+  canvas.width=W;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  if(!lifeMapInited) initLifeMap(W,H);
+
+  NODES.forEach(n=>{
+    const p=nodePos[n];
+    NODES.forEach(m=>{
+      if(m===n) return;
+      const q=nodePos[m];
+      const dx=p.x-q.x, dy=p.y-q.y;
+      const dist=Math.max(20,Math.sqrt(dx*dx+dy*dy));
+      const force=3000/(dist*dist);
+      nodeVel[n].x+=force*(dx/dist);
+      nodeVel[n].y+=force*(dy/dist);
+    });
+    (EDGES[n]||[]).forEach(m=>{
+      const q=nodePos[m];
+      if(!q) return;
+      const dx=q.x-p.x, dy=q.y-p.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist===0) return;
+      const restLen=150;
+      const force=(dist-restLen)*0.03;
+      nodeVel[n].x+=force*(dx/dist);
+      nodeVel[n].y+=force*(dy/dist);
+    });
+    nodeVel[n].x+=(W/2-p.x)*0.002;
+    nodeVel[n].y+=(H/2-p.y)*0.002;
+    nodeVel[n].x*=0.85; nodeVel[n].y*=0.85;
+    p.x=Math.max(60,Math.min(W-60,p.x+nodeVel[n].x));
+    p.y=Math.max(60,Math.min(H-60,p.y+nodeVel[n].y));
+  });
+
+  Object.entries(EDGES).forEach(([from,tos])=>{
+    tos.forEach(to=>{
+      if(!nodePos[from]||!nodePos[to]) return;
+      const p1=nodePos[from], p2=nodePos[to];
+      const col=nodeColor(scores[from]||50);
+      ctx.save();
+      ctx.strokeStyle=col; ctx.globalAlpha=0.3; ctx.lineWidth=2;
+      ctx.shadowColor=col; ctx.shadowBlur=5;
+      ctx.setLineDash([5,5]);
+      ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+      ctx.save();
+      ctx.font='10px "IBM Plex Mono",monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='rgba(255,255,255,.3)';
+      ctx.fillText('→',mx,my);
+      ctx.restore();
+    });
+  });
+
+  NODES.forEach(n=>{
+    if(!nodePos[n]) return;
+    const {x,y}=nodePos[n];
+    const sc=scores[n]||0; const col=nodeColor(sc);
+    const isBn=bottleneck.node===n;
+    const r=isBn?44:36;
+
+    ctx.save();
+    if(isBn){
+      ctx.shadowColor=col; ctx.shadowBlur=20;
+      ctx.globalAlpha=0.2+(0.08*Math.sin(Date.now()/600));
+      ctx.fillStyle=col;
+      ctx.beginPath(); ctx.arc(x,y,r+14,0,Math.PI*2); ctx.fill();
+    }
+
+    ctx.globalAlpha=1;
+    ctx.fillStyle=`${col}22`;
+    ctx.strokeStyle=col; ctx.lineWidth=isBn?2.5:1.5;
+    ctx.shadowColor=col; ctx.shadowBlur=isBn?15:8;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.font='20px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(NODE_ICONS[n],x,y-6);
+    ctx.font='bold 11px "IBM Plex Mono",monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#fff';
+    ctx.fillText(sc,x,y+10);
+    ctx.restore();
+
+    ctx.save();
+    ctx.font=`${isBn?'bold ':''}10px "IBM Plex Mono",monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillStyle=col; ctx.globalAlpha=0.9;
+    ctx.fillText(n.toUpperCase(),x,y+r+6);
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle=col; ctx.lineWidth=3; ctx.globalAlpha=0.4;
+    ctx.lineCap='round';
+    const startAng=-Math.PI/2;
+    const endAng=startAng+(sc/100)*Math.PI*2;
+    ctx.beginPath(); ctx.arc(x,y,r+6,startAng,endAng); ctx.stroke();
+    ctx.restore();
+  });
+
+  lifeAnimFrame=requestAnimationFrame(drawLifeMap);
+}
+
+// ─────────────────────────────────────────────────────
+// SIMULATION GRAPH
+// ─────────────────────────────────────────────────────
+function drawSimGraph(sc){
+  const canvas=document.getElementById('sim-canvas');
+  if(!canvas) return;
+  // Robust width: offsetWidth can be 0 if canvas not yet painted; walk up to find real width
+  let W = canvas.offsetWidth;
+  if(!W) W = canvas.parentElement?.clientWidth || canvas.parentElement?.offsetWidth || 0;
+  if(!W) W = canvas.closest('.card')?.clientWidth - 40 || 500;
+  if(W < 10) W = 500;
+  const H = 300;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const pad=44, barGap=10;
+  const chartH = H - pad*2;
+  const availW = W - pad*2;
+  const barW = Math.max(8, (availW - barGap*(NODES.length-1)) / NODES.length);
+
+  // Horizontal grid lines
+  [0,25,50,75,100].forEach(v=>{
+    const gy = H - pad - (v/100)*chartH;
+    ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+    ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.moveTo(pad,gy); ctx.lineTo(W-pad,gy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font='8px "IBM Plex Mono",monospace';
+    ctx.fillStyle='rgba(255,255,255,.2)'; ctx.textAlign='right';
+    ctx.fillText(v, pad-6, gy+3);
+  });
+
+  NODES.forEach((n,i)=>{
+    const sc2 = Math.max(0, Math.min(100, sc[n]||0));
+    const col = nodeColor(sc2);
+    const barH = Math.max(2, (sc2/100)*chartH);
+    const x = pad + i*(barW+barGap);
+    const y = H - pad - barH;
+
+    // Background track
+    ctx.fillStyle='rgba(255,255,255,.04)';
+    ctx.beginPath(); ctx.roundRect(x, pad, barW, chartH, 4); ctx.fill();
+
+    // Filled bar (guard against barH<=0 which crashes roundRect)
+    if(barH > 1){
+      const grad = ctx.createLinearGradient(x, y+barH, x, y);
+      grad.addColorStop(0, col+'55'); grad.addColorStop(1, col+'dd');
+      ctx.fillStyle = grad;
+      ctx.shadowColor = col; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.roundRect(x, y, barW, barH, [4,4,0,0]); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Baseline dashed marker
+    if(baseScores[n]!==undefined){
+      const baseH = Math.max(2, (baseScores[n]/100)*chartH);
+      const baseY = H - pad - baseH;
+      ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=1.5;
+      ctx.setLineDash([4,4]);
+      ctx.beginPath(); ctx.moveTo(x, baseY); ctx.lineTo(x+barW, baseY); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Score label above bar
+    ctx.font='bold 10px "IBM Plex Mono",monospace';
+    ctx.fillStyle=col; ctx.textAlign='center';
+    ctx.shadowColor=col; ctx.shadowBlur=6;
+    ctx.fillText(sc2, x+barW/2, Math.max(pad+12, y-6));
+    ctx.shadowBlur=0;
+
+    // Emoji icon
+    ctx.font='15px sans-serif'; ctx.fillStyle='#fff';
+    ctx.fillText(NODE_ICONS[n], x+barW/2, H-pad+14);
+
+    // Node label
+    ctx.font='8px "IBM Plex Mono",monospace';
+    ctx.fillStyle='rgba(255,255,255,.4)';
+    ctx.fillText(n.slice(0,4).toUpperCase(), x+barW/2, H-pad+26);
+  });
+
+  // Bottom axis line
+  ctx.strokeStyle='rgba(255,255,255,.1)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad,H-pad); ctx.lineTo(W-pad,H-pad); ctx.stroke();
+}
+
+// ─────────────────────────────────────────────────────
+// DASHBOARD UPDATER
+// ─────────────────────────────────────────────────────
+function updateDashboard(){
+  const health=systemHealth(scores);
+
+  const pill=document.getElementById('nav-health-pill');
+  const pillCol=health>=65?'rgba(29,232,160,.15)':health>=40?'rgba(245,198,66,.12)':'rgba(255,74,74,.12)';
+  const textCol=health>=65?'var(--green)':health>=40?'var(--yellow)':'var(--red)';
+  pill.style.background=pillCol;
+  pill.style.borderColor=textCol;
+  pill.style.color=textCol;
+  document.getElementById('nav-health-text').textContent=`Health: ${health}`;
+
+  const hn=document.getElementById('health-num');
+  hn.textContent=health;
+  hn.style.color=textCol;
+  hn.style.textShadow=`0 0 40px ${health>=65?'rgba(29,232,160,.4)':health>=40?'rgba(245,198,66,.4)':'rgba(255,74,74,.4)'}`;
+  document.getElementById('health-status').textContent=
+    health>=65?'System Running Well ✓':health>=40?'Moderate Issues Detected':'Critical Failures Found';
+
+  const grid=document.getElementById('scores-grid');
+  grid.innerHTML=NODES.map(n=>{
+    const sc=scores[n]; const col=nodeColor(sc);
+    return `<div class="score-chip" style="border-color:${col}22">
+      <div class="sc-name">${n}</div>
+      <div class="sc-val" style="color:${col}">${sc}</div>
+    </div>`;
+  }).join('');
+
+  // System Health Report
+  const shrGrid=document.getElementById('shr-grid');
+  const shrData=[
+    {label:'Phone use', score:Math.round((1-(userData.phone/12))*100)},
+    {label:'Sleep quality', score:scores.sleep},
+    {label:'Energy level', score:scores.energy},
+    {label:'Work output', score:scores.output},
+    {label:'Focus quality', score:scores.focus},
+    {label:'Stress balance', score:scores.stress},
+    {label:'Discipline', score:scores.discipline},
+  ];
+  const critCount=shrData.filter(d=>d.score<40).length;
+  document.getElementById('shr-critical-badge').textContent=`${critCount} critical`;
+  document.getElementById('shr-critical-badge').style.display=critCount>0?'block':'none';
+  shrGrid.innerHTML=shrData.map(d=>{
+    const col=nodeColor(d.score);
+    const status=d.score>=65?'healthy':d.score>=40?'warning':'critical';
+    return `<div class="shr-row">
+      <div class="shr-label">${d.label}</div>
+      <div class="shr-bar-wrap">
+        <div class="shr-bar-fill" style="width:${d.score}%;background:${col}"></div>
+      </div>
+      <div class="shr-score" style="color:${col}">${d.score}</div>
+      <div class="shr-badge badge-${status}">${status}</div>
+    </div>`;
+  }).join('');
+
+  // Action recommendations
+  const actions = buildActionRecommendations(userData, scores);
+  const actionList = document.getElementById('action-rec-list');
+  if(actions.length === 0){
+    actionList.innerHTML=`<div style="font-size:13px;color:var(--green);font-family:var(--mono)">✓ No critical imbalances detected. System is reasonably balanced.</div>`;
+  } else {
+    actionList.innerHTML=actions.map(a=>`
+      <div class="action-item">
+        <span class="action-tag ${a.tag}">${a.tag.toUpperCase()}</span>
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text);margin-bottom:2px">${a.label}</div>
+          <div style="font-size:12px;color:var(--text3)">${a.detail}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Bottleneck
+  const bn=bottleneck;
+  document.getElementById('bn-node').textContent=bn.node.toUpperCase();
+  document.getElementById('bn-icon').textContent=NODE_ICONS[bn.node]||'⚡';
+  document.getElementById('bn-score').textContent=`Score: ${bn.score}/100 · Affects ${bn.downstream} downstream nodes`;
+  document.getElementById('bn-impact-num').textContent=bn.impactScore+'%';
+  document.getElementById('bn-impact-bar').style.width=Math.min(100,bn.impactScore)+'%';
+  document.getElementById('bn-explanation').textContent=bn.explanation;
+  const tradeoffBox=document.getElementById('bn-tradeoff');
+  if(bn.tradeoff){
+    tradeoffBox.textContent='⚠ Tradeoff: '+bn.tradeoff;
+    tradeoffBox.classList.add('show');
+  } else {
+    tradeoffBox.classList.remove('show');
+  }
+
+  // Root cause chain
+  const chain=buildRootCauseChain(scores);
+  document.getElementById('chain-wrap').innerHTML=
+    chain.map((n,i)=>`<div class="chain-node" style="color:${nodeColor(scores[n])};border-color:${nodeColor(scores[n])}44">
+      ${NODE_ICONS[n]} ${n}
+    </div>${i<chain.length-1?'<div class="chain-arrow">→</div>':''}`).join('');
+
+  document.getElementById('leverage-text').textContent=
+    `Fix ${bn.node} → improves ${bn.downstream} downstream domains`;
+
+  document.getElementById('stat-score').textContent=health;
+  document.getElementById('stat-score').style.color=textCol;
+  document.getElementById('stat-leverage').textContent='1';
+  document.getElementById('stat-gain').textContent=`+${Math.round(100-health)}`;
+  document.getElementById('stat-rules').textContent=RULES.filter(r=>r.active).length;
+
+  renderNodeCards();
+  updateSimCompare();
+}
+
+function renderNodeCards(){
+  const container=document.getElementById('node-detail-cards');
+  if(!container) return;
+  container.innerHTML=NODES.map(n=>{
+    const sc=scores[n]; const col=nodeColor(sc);
+    const isBn=bottleneck.node===n;
+    return `<div class="card" style="border-color:${col}${isBn?'':'22'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:20px">${NODE_ICONS[n]}</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${col}">${sc}</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;color:${col}">${n}</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.5">${NODE_DESCRIPTIONS[n]}</div>
+      ${isBn?`<div style="margin-top:8px;padding:6px 10px;background:rgba(255,74,74,.1);border-radius:6px;font-family:var(--mono);font-size:10px;color:var(--red);letter-spacing:1px">⚠ BOTTLENECK</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function updateSimCompare(){
+  const grid=document.getElementById('sim-compare-grid');
+  if(!grid) return;
+  grid.innerHTML=NODES.map(n=>{
+    const cur=scores[n]; const base=baseScores[n]||cur;
+    const diff=cur-base; const col=nodeColor(cur);
+    const diffStr=diff>0?`+${diff}`:diff<0?`${diff}`:'±0';
+    const diffCol=diff>0?'var(--green)':diff<0?'var(--red)':'var(--text3)';
+    return `<div class="score-chip">
+      <div class="sc-name">${n}</div>
+      <div class="sc-val" style="color:${col}">${cur}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:${diffCol};margin-top:2px">${diffStr}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────────────
+// RULES ENGINE
+// ─────────────────────────────────────────────────────
+function renderRules(){
+  const grid=document.getElementById('rules-grid');
+  const activeCount=RULES.filter(r=>r.active).length;
+  document.getElementById('rules-active-count').textContent=`${activeCount} active`;
+  grid.innerHTML=RULES.map((r,i)=>`
+    <div class="rule-card ${r.active?'active-rule':''}" onclick="toggleRule(${i})">
+      <div class="rule-toggle ${r.active?'on':'off'}"></div>
+      <div class="rule-body">
+        <div class="rule-title">${r.text}</div>
+        <div class="rule-desc">${r.desc}</div>
+        <div class="rule-tag impact-${r.impact}">● ${r.impact.toUpperCase()} IMPACT</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleRule(i){
+  RULES[i].active=!RULES[i].active;
+  runScoring(userData);
+  updateDashboard();
+  drawSimGraph(scores);
+  renderRules();
+  showToast(`Rule ${RULES[i].active?'enabled':'disabled'}`);
+}
+
+// ─────────────────────────────────────────────────────
+// SIMULATION
+// ─────────────────────────────────────────────────────
+function updateSimSliderUI(id, val, max, suffix){
+  const pct=(parseFloat(val)/max)*100;
+  document.getElementById(`ss-${id}-fill`).style.width=pct+'%';
+  document.getElementById(`ss-${id}-val`).textContent=parseFloat(val).toFixed(suffix==='h'?1:0)+(suffix||'');
+}
+
+// Sim tradeoff detection
+function detectSimTradeoffs(u){
+  const warnings = [];
+  if(u.sleep > 9) warnings.push(`Sleep >9h → reduces discipline & productive time`);
+  if(u.sleep < 5 && u.work > 10) warnings.push(`Low sleep + high work = burnout spiral`);
+  if(u.stress < 3 && u.work < 5) warnings.push(`Very low stress + low work → output will drop`);
+  if(u.work > 14 && u.stress > 7) warnings.push(`High work + high stress → system crash in 2–4 weeks`);
+  if(u.phone > 8 && u.work > 8) warnings.push(`High phone + high work is unsustainable — focus collapses`);
+  return warnings;
+}
+
+function onSimChange(){
+  const sleep=parseFloat(document.getElementById('ss-sleep').value);
+  const phone=parseFloat(document.getElementById('ss-phone').value);
+  const work=parseFloat(document.getElementById('ss-work').value);
+  const stress=parseFloat(document.getElementById('ss-stress').value);
+  const energy=parseFloat(document.getElementById('ss-energy').value);
+
+  updateSimSliderUI('sleep',sleep,12,'h');
+  updateSimSliderUI('phone',phone,12,'h');
+  updateSimSliderUI('work',work,18,'h');
+  updateSimSliderUI('stress',stress,10,'');
+  updateSimSliderUI('energy',energy,10,'');
+
+  const simUser={sleep,phone,work,stress,energy};
+  const base=computeBaseScores(simUser);
+  const sc=applyRules(simUser,base);
+
+  const baseH=systemHealth(baseScores);
+  const simH=systemHealth(sc);
+  const diff=simH-baseH;
+  const sign=diff>=0?'+':'';
+
+  document.getElementById('proj-delta').textContent=`${sign}${diff}`;
+  document.getElementById('proj-delta').style.color=diff>0?'var(--green)':diff<0?'var(--red)':'var(--yellow)';
+  document.getElementById('proj-detail').textContent=`Baseline: ${baseH} → Simulated: ${simH}`;
+
+  document.getElementById('proj-bar-base').style.width=baseH+'%';
+  document.getElementById('proj-bar-curr').style.width=simH+'%';
+  document.getElementById('proj-base-label').textContent=`${baseH}`;
+  document.getElementById('proj-curr-label').textContent=`${simH}`;
+
+  // Tradeoff alerts
+  const warnings = detectSimTradeoffs(simUser);
+  const tradeoffEl = document.getElementById('sim-tradeoff-alert');
+  if(warnings.length > 0){
+    tradeoffEl.innerHTML = '⚠ Tradeoff Detected:<br>' + warnings.map(w=>`• ${w}`).join('<br>');
+    tradeoffEl.classList.add('show');
+  } else {
+    tradeoffEl.classList.remove('show');
+  }
+
+  drawSimGraph(sc);
+  const grid=document.getElementById('sim-compare-grid');
+  if(grid){
+    grid.innerHTML=NODES.map(n=>{
+      const cur=sc[n]; const base2=baseScores[n]||cur;
+      const d=cur-base2; const col=nodeColor(cur);
+      const ds=d>0?`+${d}`:d<0?`${d}`:'±0';
+      const dc=d>0?'var(--green)':d<0?'var(--red)':'var(--text3)';
+      return `<div class="score-chip">
+        <div class="sc-name">${n}</div>
+        <div class="sc-val" style="color:${col}">${cur}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:${dc};margin-top:2px">${ds}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// FIX PLAN
+// ─────────────────────────────────────────────────────
+function generateFixPlan(){
+  const bn=bottleneck.node;
+  const plans={
+    sleep:[
+      {step:'Set a hard sleep window: in bed by X, wake by X+8h. Consistency beats duration.',num:'01'},
+      {step:'Avoid screens 45 min before bed. Greyscale mode after 9pm removes dopamine triggers.',num:'02'},
+      {step:'If sleeping >9h — set an alarm. Oversleeping is avoidance, not rest.',num:'03'},
+      {step:'Track sleep for 7 days. Identify what cuts it short vs. what lets you oversleep.',num:'04'},
+    ],
+    stress:[
+      {step:'Write down top 3 stress sources. Stress without a label keeps you in fight-or-flight.',num:'01'},
+      {step:'Note: zero stress is also a problem. If nothing feels urgent, set meaningful deadlines.',num:'02'},
+      {step:'10-min daily decompression: walk, breathe, journal. Non-negotiable.',num:'03'},
+      {step:'Reduce decision fatigue: pre-decide meals, tasks, and outfits the night before.',num:'04'},
+    ],
+    focus:[
+      {step:'Phone under 2h/day. Every extra hour costs ~8 focus points. This is non-negotiable.',num:'01'},
+      {step:'Identify your 2 peak focus hours (usually morning) and protect them completely.',num:'02'},
+      {step:'Pomodoro: 25 min deep work + 5 min break. No multitasking.',num:'03'},
+      {step:'If overthinking is a problem: write the thought down, close the loop externally.',num:'04'},
+    ],
+    output:[
+      {step:'Top 3 tasks written the night before. Work on #1 before opening email or phone.',num:'01'},
+      {step:'Output requires fixing upstream nodes first — check stress and focus scores.',num:'02'},
+      {step:'Time-block 3 deep work sessions per day. Protect them like meetings.',num:'03'},
+      {step:'Weekly review Sunday: what got done, what didn\'t, why, and what changes next week.',num:'04'},
+    ],
+    discipline:[
+      {step:'Start with one keystone habit. Trying to fix everything at once is why you\'re here.',num:'01'},
+      {step:'Reduce friction for good habits, add friction for bad ones. Environment > willpower.',num:'02'},
+      {step:'Track with a simple habit streak. Missing once is fine, missing twice is the start of a pattern.',num:'03'},
+      {step:'Impulsive decisions? Implement a 24-hour pause for non-urgent choices.',num:'04'},
+    ],
+    energy:[
+      {step:'Energy is downstream of sleep. Fix sleep first — it will move energy significantly.',num:'01'},
+      {step:'Protein-rich breakfast within 60 min of waking. Skip it and your energy crashes by noon.',num:'02'},
+      {step:'10-min walk after lunch. Prevents the afternoon energy dip.',num:'03'},
+      {step:'One coffee before noon only. Afternoon caffeine destroys sleep quality.',num:'04'},
+    ],
+  };
+  const steps=plans[bn]||plans.sleep;
+  const out=document.getElementById('fix-plan-output');
+  out.innerHTML=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:12px">Fix Plan: ${bn.toUpperCase()} Bottleneck</div>`+
+    steps.map(s=>`<div class="fix-step"><span class="fix-step-num">${s.num}</span><span>${s.step}</span></div>`).join('');
+  out.classList.add('visible');
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// COGNITIVE STATE ENGINE — Architecture v1
+// Implements: CognitiveState, ShameFreeLoop, Sensory Detection,
+// Emergency Mode, Adaptive Response Config, AI Advisor
+// ═══════════════════════════════════════════════════════════════
+
+// ── CognitiveState derivation ──
+function deriveMode(energy, focus, overload) {
+  if (overload)                                        return 'emergency';
+  if (energy === 'low'  || focus === 'blocked')        return 'micro';
+  if (energy === 'medium' || focus === 'scattered')    return 'simplified';
+  return 'deep';
+}
+
+function assessCognitiveState(message, history, sessionCtx) {
+  const msg = message || '';
+
+  // ENERGY signals
+  let energy;
+  if (/^.{0,40}$|idk|cant|tired|exhausted|maybe|whatever|ugh|fine/i.test(msg) && msg.length < 60) {
+    energy = 'low';
+  } else if (/trying|kind of|somewhat|a bit|not sure/i.test(msg)) {
+    energy = 'medium';
+  } else if (msg.length > 120 || /because|specifically|want to understand|here'?s what/i.test(msg)) {
+    energy = 'high';
+  } else {
+    energy = msg.length > 70 ? 'medium' : 'low';
+  }
+
+  // FOCUS signals
+  let focus;
+  if (/can'?t think|blank|nothing|stuck|frozen|don'?t know where to start/i.test(msg)) {
+    focus = 'blocked';
+  } else if (/also|wait|actually|nevermind|i forgot|keep forgetting|tangent/i.test(msg)) {
+    focus = 'scattered';
+  } else {
+    focus = 'clear';
+  }
+
+  // OVERLOAD signals
+  const last3Short = history.slice(-3).every(m => (m.content||m.text||'').length < 15);
+  const overloadTriggers = [
+    msg.length < 8 && last3Short,
+    /too much|overwhelmed|stop|can'?t do this|shutting down|too many/i.test(msg),
+    sessionCtx.sessionDuration > 40 && sessionCtx.avgResponseLength < 20,
+    sessionCtx.abandonedQuestions > 2,
+    /overwhelmed|breaking down|shutdown|can'?t think/i.test(msg),
+  ];
+  const overload = overloadTriggers.filter(Boolean).length >= 2;
+
+  // SENSORY LOAD
+  const sensoryLoad = computeSensoryLoad(sessionCtx, msg);
+
+  const mode = deriveMode(energy, focus, overload);
+  return { energy, focus, overload, mode, sensoryLoad, momentTimestamp: Date.now() };
+}
+
+function computeSensoryLoad(ctx, lastMsg = '') {
+  let load = 0;
+  const hour = new Date().getHours();
+  if (hour < 7 || hour > 22) load += 0.15;
+  if ((ctx.correctionCount || 0) > 3) load += 0.2;
+  if ((ctx.pausesBetweenMessages || 0) > 120000) load += 0.15;
+  if ((ctx.abandonedMidMessage || 0) > 1) load += 0.2;
+  if ((ctx.sessionRestarts || 0) > 1) load += 0.15;
+  if (/loud|noisy|distracted|can'?t focus|interrupted/i.test(lastMsg)) load += 0.3;
+  if (/quiet|calm|okay now|back/i.test(lastMsg)) load -= 0.2;
+  return Math.max(0, Math.min(1, load));
+}
+
+// RESPONSE CONFIGS — behavioral contracts per mode
+const RESPONSE_CONFIGS = {
+  deep: {
+    maxSentences: null,
+    questionCount: 1,
+    listAllowed: true,
+    offerPause: false,
+    preambleAllowed: true,
+    label: 'DEEP MODE',
+    chipClass: 'mode-deep',
+  },
+  simplified: {
+    maxSentences: 3,
+    questionCount: 1,
+    listAllowed: false,
+    offerPause: false,
+    preambleAllowed: false,
+    label: 'CLEAR MODE',
+    chipClass: 'mode-simplified',
+  },
+  micro: {
+    maxSentences: 1,
+    questionCount: 1,
+    offerPause: true,
+    listAllowed: false,
+    preambleAllowed: false,
+    label: 'MICRO MODE',
+    chipClass: 'mode-micro',
+  },
+  emergency: {
+    maxSentences: 1,
+    questionCount: 0,
+    listAllowed: false,
+    offerPause: false,
+    preambleAllowed: false,
+    physicalActionOnly: true,
+    label: 'EMERGENCY',
+    chipClass: 'mode-emergency',
+  },
+};
+
+// ── ShameFreeLoop ──
+const ShameFreeLoop = {
+  _currentStart: null,
+  _lastSeen: null,
+
+  startFromNow() {
+    this._currentStart = Date.now();
+    this._lastSeen = Date.now();
+  },
+
+  onReturn(state) {
+    const now = Date.now();
+    const gap = this._lastSeen ? now - this._lastSeen : Infinity;
+    this._lastSeen = now;
+
+    if (!this._currentStart || gap > 30 * 60 * 1000) {
+      // Fresh start — no guilt, no "last time you were going to…"
+      this.startFromNow();
+      return ADVISOR_WELCOME[state.mode] || ADVISOR_WELCOME.deep;
+    }
+    // Under 30 min: quiet resume, no commentary
+    return null;
+  },
+};
+
+const ADVISOR_WELCOME = {
+  deep:        "What's on your mind today?",
+  simplified:  "Where would you like to pick up?",
+  micro:       "Good to see you. One thing when you're ready.",
+  emergency:   "Nothing is due. I'm here when you're ready.",
+};
+
+// EMERGENCY responses by trigger type
+function getEmergencyResponse(msg) {
+  if (/too much|stop/i.test(msg))       return "Stopping now. Close your eyes for ten seconds if you want.";
+  if (/can'?t do this/i.test(msg))      return "You don't have to. One small thing if it helps: get some water.";
+  if (/overwhelmed/i.test(msg))         return "Understood. Nothing is due. Come back whenever.";
+  return "No pressure. I'm here when you're ready.";
+}
+
+// ── ADVISOR SESSION STATE ──
+const AdvisorSession = {
+  history: [],           // [{role:'user'|'assistant', content:str}]
+  sessionStart: Date.now(),
+  lastMessageTime: null,
+  responseLengths: [],
+  abandonedQuestions: 0,
+  correctionCount: 0,
+  sessionRestarts: 0,
+  currentState: null,
+  sensoryMode: false,
+  initialized: false,
+
+  getContext() {
+    const now = Date.now();
+    const sessionDuration = (now - this.sessionStart) / 60000;
+    const avgResponseLength = this.responseLengths.length
+      ? this.responseLengths.reduce((a,b)=>a+b,0) / this.responseLengths.length : 50;
+    const pausesBetweenMessages = this.lastMessageTime ? now - this.lastMessageTime : 0;
+    return {
+      sessionDuration,
+      avgResponseLength,
+      pausesBetweenMessages,
+      abandonedQuestions: this.abandonedQuestions,
+      correctionCount: this.correctionCount,
+      sessionRestarts: this.sessionRestarts,
+      abandonedMidMessage: 0,
+    };
+  },
+
+  recordUserMessage(msg) {
+    this.responseLengths.push(msg.length);
+    this.lastMessageTime = Date.now();
+    this.history.push({ role: 'user', content: msg });
+  },
+
+  recordAssistantMessage(msg) {
+    this.history.push({ role: 'assistant', content: msg });
+  },
+};
+
+// Build the system prompt for the Advisor (injected with mode constraints)
+function buildAdvisorSystemPrompt(cogState, userDataRef) {
+  const cfg = RESPONSE_CONFIGS[cogState.mode];
+  const modeInstructions = {
+    deep: `You are in DEEP mode. You may give detailed, multi-sentence responses. You may ask one follow-up question. You may use structure/lists if genuinely helpful.`,
+    simplified: `You are in SIMPLIFIED mode. Keep your response to 3 sentences max. Ask at most one simple binary question. No preamble. No bullet points.`,
+    micro: `You are in MICRO mode. One sentence only. One action, present-tense, smallest possible step. End with "or we can stop here" if appropriate. No explanation.`,
+    emergency: `You are in EMERGENCY mode. One line only. Format: [brief acknowledgment]. [ONE optional physical micro-action framed as optional, e.g. "get some water if you want"]. NO questions. NO follow-ups. NO cognitive tasks.`,
+  };
+
+  const sensoryCap = cogState.sensoryLoad > 0.6
+    ? `\n\nSENSORY OVERRIDE: The user seems overloaded. Hard cap: 1 sentence. No lists. No questions this turn. Append "or we can stop here" only.`
+    : '';
+
+  const systemContext = userDataRef && Object.keys(userDataRef).length
+    ? `\n\nUser's system data: sleep=${userDataRef.sleep}h, stress=${userDataRef.stress}/10, energy=${userDataRef.energy}/10, phone=${userDataRef.phone}h/day, work=${userDataRef.work}h/day. Their bottleneck node is "${bottleneck?.node || 'unknown'}".`
+    : '';
+
+  return `You are the LifeOS Advisor — a personal systems coach for neurodivergent and high-functioning users. You help people debug their life systems: sleep, energy, focus, output, stress, discipline.
+
+You adapt your communication style based on the user's current cognitive bandwidth. Right now:
+${modeInstructions[cogState.mode]}${sensoryCap}${systemContext}
+
+Core rules (never break these):
+- Never mention "last time you were going to..." unless the user explicitly asks
+- Never count or surface incomplete items as backlog or guilt
+- Every session starts fresh from now, not from deficit
+- Never ask two questions in one response
+- Never diagnose. You observe, reflect, and suggest.
+- You are warm but efficient. No hollow filler like "Great question!"`;
+}
+
+// ── ADVISOR UI FUNCTIONS ──
+function advisorAppendMessage(role, text) {
+  const msgs = document.getElementById('advisor-messages');
+  const div = document.createElement('div');
+
+  if (role === 'system') {
+    div.className = 'adv-msg-system';
+    div.innerHTML = `
+      <div class="adv-avatar">🧠</div>
+      <div class="adv-bubble-system">${text.replace(/\n/g,'<br>')}</div>`;
+  } else {
+    div.className = 'adv-msg-user';
+    div.innerHTML = `<div class="adv-bubble-user">${text}</div>`;
+  }
+
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function advisorShowTyping() {
+  const msgs = document.getElementById('advisor-messages');
+  const div = document.createElement('div');
+  div.id = 'adv-typing-indicator';
+  div.className = 'adv-typing adv-msg-system';
+  div.innerHTML = `
+    <div class="adv-avatar">🧠</div>
+    <div class="adv-bubble-system">
+      <div class="adv-typing-dots"><span></span><span></span><span></span></div>
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function advisorRemoveTyping() {
+  document.getElementById('adv-typing-indicator')?.remove();
+}
+
+function advisorUpdateModeBadge(state) {
+  const cfg = RESPONSE_CONFIGS[state.mode];
+  const badge = document.getElementById('advisor-mode-badge');
+  badge.textContent = cfg.label;
+  badge.className = `advisor-mode-chip ${cfg.chipClass}`;
+
+  // Sensory mode — strip visual noise from shell
+  const shell = document.querySelector('.advisor-shell');
+  if (shell) {
+    if (state.sensoryLoad > 0.6) shell.classList.add('sensory-mode');
+    else shell.classList.remove('sensory-mode');
+  }
+}
+
+async function advisorSend() {
+  const input = document.getElementById('advisor-input');
+  const raw = input.value.trim();
+  if (!raw) return;
+  input.value = '';
+  document.getElementById('advisor-send').disabled = true;
+
+  // Record + show user message
+  AdvisorSession.recordUserMessage(raw);
+  advisorAppendMessage('user', raw);
+
+  // Assess cognitive state
+  const ctx = AdvisorSession.getContext();
+  const cogState = assessCognitiveState(raw, AdvisorSession.history.slice(-6), ctx);
+  AdvisorSession.currentState = cogState;
+  AdvisorSession.sensoryMode = cogState.sensoryLoad > 0.6;
+  advisorUpdateModeBadge(cogState);
+
+  // Emergency short-circuit — no API call needed
+  if (cogState.mode === 'emergency') {
+    advisorShowTyping();
+    await new Promise(r => setTimeout(r, 600));
+    advisorRemoveTyping();
+    const resp = getEmergencyResponse(raw);
+    advisorAppendMessage('system', resp);
+    AdvisorSession.recordAssistantMessage(resp);
+    document.getElementById('advisor-send').disabled = false;
+    return;
+  }
+
+  advisorShowTyping();
+
+  try {
+    const systemPrompt = buildAdvisorSystemPrompt(cogState, userData);
+    const messages = AdvisorSession.history.slice(-12).map(m => ({
+      role: m.role === 'system' ? 'assistant' : m.role,
+      content: m.content,
+    }));
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages,
+      }),
+    });
+
+    const data = await response.json();
+    let text = (data.content || []).map(b => b.text || '').join('');
+
+    // Post-process: enforce hard limits from mode config
+    text = enforceResponseHardLimits(text, cogState);
+
+    // Append "or we can stop here" for micro mode if not already present
+    if (cogState.mode === 'micro' && RESPONSE_CONFIGS.micro.offerPause && !/stop here/i.test(text)) {
+      text = text.replace(/[.!?]?\s*$/, '') + ' — or we can stop here.';
+    }
+
+    advisorRemoveTyping();
+    advisorAppendMessage('system', text);
+    AdvisorSession.recordAssistantMessage(text);
+
+  } catch (err) {
+    advisorRemoveTyping();
+    const fallback = cogState.mode === 'micro'
+      ? "One thing: take a breath."
+      : "Something went wrong. Try again in a moment.";
+    advisorAppendMessage('system', fallback);
+  }
+
+  document.getElementById('advisor-send').disabled = false;
+  document.getElementById('advisor-input').focus();
+}
+
+function enforceResponseHardLimits(text, cogState) {
+  const cfg = RESPONSE_CONFIGS[cogState.mode];
+
+  // Sensory override hard cap
+  if (cogState.sensoryLoad > 0.6 || cfg.maxSentences === 1) {
+    // Keep first sentence only
+    const firstSentence = text.match(/^[^.!?\n]+[.!?]/);
+    if (firstSentence) text = firstSentence[0];
+  }
+
+  // Strip preamble if not allowed
+  if (!cfg.preambleAllowed) {
+    text = text.replace(/^(great|sure|of course|absolutely|that'?s|i understand|i see|i'?m|let me)[^.!?\n]*[.!?]\s*/i, '');
+  }
+
+  // Remove bullet lists if not allowed
+  if (!cfg.listAllowed) {
+    text = text.replace(/^\s*[-•*]\s+.+$/gm, '').replace(/\n{2,}/g, ' ').trim();
+  }
+
+  return text.trim();
+}
+
+// ── Initialize Advisor on tab switch ──
+function initAdvisor() {
+  if (AdvisorSession.initialized) return;
+  AdvisorSession.initialized = true;
+
+  const returnMsg = ShameFreeLoop.onReturn(
+    assessCognitiveState('', [], AdvisorSession.getContext())
+  );
+  const welcome = returnMsg || ADVISOR_WELCOME.deep;
+
+  advisorAppendMessage('system', welcome);
+
+  // Also send a context-aware opener if userData exists
+  if (userData && Object.keys(userData).length) {
+    const bn = bottleneck?.node;
+    const health = systemHealth(scores);
+    setTimeout(() => {
+      const ctx = `Your system health is <strong>${health}/100</strong>. Your bottleneck is <strong>${bn || 'unknown'}</strong>. I can help you work on any area — or just talk through what's on your mind.`;
+      advisorAppendMessage('system', ctx);
+    }, 600);
+  }
+
+  // Enter key to send
+  document.getElementById('advisor-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); advisorSend(); }
+  });
+}
+
+// ── Also wire CognitiveState into the ONBOARDING QA flow ──
+// Patch QA.showMessage to adapt pacing based on message length (sensory-aware)
+const _origShowMessage = QA.showMessage.bind(QA);
+QA.showMessage = function(text, delay = 0) {
+  // Quick sensory check on current session context
+  const lastUserMsg = QA.answers ? Object.values(QA.answers).pop() : '';
+  const lastMsgStr = String(lastUserMsg || '');
+  const ctx = { sessionDuration: 0, avgResponseLength: lastMsgStr.length || 50, abandonedQuestions: 0, correctionCount: 0, sessionRestarts: 0, pausesBetweenMessages: 0 };
+  const state = assessCognitiveState(lastMsgStr, [], ctx);
+
+  // In micro or emergency: shorten simulated typing delay
+  const speedFactor = state.mode === 'micro' || state.mode === 'emergency' ? 0.4 : 1;
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const msgs = document.getElementById('qa-messages');
+      const typing = document.createElement('div');
+      typing.className = 'qa-typing qa-msg-system';
+      typing.innerHTML = `<div class="qa-avatar">🧠</div><div class="qa-bubble-system"><div class="qa-typing-dots"><span></span><span></span><span></span></div></div>`;
+      msgs.appendChild(typing);
+      msgs.scrollTop = msgs.scrollHeight;
+
+      const typingTime = Math.round((700 + Math.min(text.length * 12, 800)) * speedFactor);
+      setTimeout(() => {
+        msgs.removeChild(typing);
+        const msg = document.createElement('div');
+        msg.className = 'qa-msg-system';
+        msg.innerHTML = `<div class="qa-avatar">🧠</div><div class="qa-bubble-system">${text}</div>`;
+        msgs.appendChild(msg);
+        msgs.scrollTop = msgs.scrollHeight;
+        resolve();
+      }, typingTime);
+    }, delay);
+  });
+};
+
+
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  const panel=document.getElementById(`tab-${name}`);
+  if(panel){panel.classList.add('active');}
+  const tabs=['diagnosis','lifemap','simulate','rules','tracker','advisor'];
+  const idx=tabs.indexOf(name);
+  if(idx>=0) document.querySelectorAll('.nav-tab')[idx]?.classList.add('active');
+  if(name==='advisor'){cancelAnimationFrame(animFrame);cancelAnimationFrame(lifeAnimFrame);initAdvisor();return;}
+
+  if(name==='diagnosis'){
+    cancelAnimationFrame(lifeAnimFrame);
+    setTimeout(drawGraph,50);
+  } else if(name==='lifemap'){
+    cancelAnimationFrame(animFrame);
+    setTimeout(()=>{lifeMapInited=false; drawLifeMap();},50);
+  } else if(name==='simulate'){
+    cancelAnimationFrame(animFrame);
+    cancelAnimationFrame(lifeAnimFrame);
+    // Use rAF to ensure the panel is visible and has layout before drawing
+    requestAnimationFrame(()=>requestAnimationFrame(()=>drawSimGraph(scores)));
+  } else if(name==='tracker'){
+    cancelAnimationFrame(animFrame);
+    cancelAnimationFrame(lifeAnimFrame);
+    renderTracker();
+  } else {
+    cancelAnimationFrame(animFrame);
+    cancelAnimationFrame(lifeAnimFrame);
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ─────────────────────────────────────────────────────
+// LAUNCH + RESET
+// ─────────────────────────────────────────────────────
+function launchDashboard(){
+  // If QA is done, use collected data; otherwise read legacy inputs
+  let sleep, work, phone, stress, energy;
+  if(QA && QA.done && Object.keys(QA.answers).length > 0){
+    const ud = QA.computeUserData();
+    sleep = ud.sleep; work = ud.work; phone = ud.phone; stress = ud.stress; energy = ud.energy;
+  } else {
+    sleep=parseFloat(document.getElementById('f-sleep').value)||6;
+    work=parseFloat(document.getElementById('f-work').value)||10;
+    phone=parseFloat(document.getElementById('f-phone').value)||5;
+    stress=parseFloat(document.getElementById('f-stress').value)||7;
+    energy=parseFloat(document.getElementById('f-energy').value)||4;
+  }
+
+  userData={sleep,work,phone,stress,energy,problems:selectedProblems.slice()};
+
+  document.getElementById('ss-sleep').value=sleep;
+  document.getElementById('ss-phone').value=phone;
+  document.getElementById('ss-work').value=work;
+  document.getElementById('ss-stress').value=stress;
+  document.getElementById('ss-energy').value=energy;
+  updateSimSliderUI('sleep',sleep,12,'h');
+  updateSimSliderUI('phone',phone,12,'h');
+  updateSimSliderUI('work',work,18,'h');
+  updateSimSliderUI('stress',stress,10,'');
+  updateSimSliderUI('energy',energy,10,'');
+
+  runScoring(userData);
+  baseScores={...scores};
+
+  bottleneck=detectBottleneck(scores);
+
+  updateDashboard();
+  renderRules();
+
+  document.getElementById('onboard-page').classList.remove('active');
+  document.getElementById('dash-page').classList.add('active');
+
+  setTimeout(()=>{
+    drawGraph();
+    // sim-canvas is in a hidden tab; draw after 2 rAF cycles once layout is ready
+    requestAnimationFrame(()=>requestAnimationFrame(()=>drawSimGraph(scores)));
+    showToast('System analysis complete');
+  },100);
+}
+
+function resetApp(){
+  cancelAnimationFrame(animFrame);
+  cancelAnimationFrame(lifeAnimFrame);
+  lifeMapInited=false;
+  document.getElementById('dash-page').classList.remove('active');
+  document.getElementById('onboard-page').classList.add('active');
+  document.getElementById('fix-plan-output').classList.remove('visible');
+  switchTab('diagnosis');
+  // Restart QA
+  QA.done = false;
+  QA.step = 0;
+  QA.answers = {};
+  document.getElementById('qa-messages').innerHTML = '';
+  document.getElementById('qa-input-zone').innerHTML = '';
+  document.getElementById('qa-progress').style.width = '0%';
+  selectedProblems = [];
+  setTimeout(() => QA.start(), 50);
+}
+
+window.addEventListener('resize',()=>{
+  const activeTab=document.querySelector('.tab-panel.active')?.id;
+  if(activeTab==='tab-diagnosis') drawGraph();
+  else if(activeTab==='tab-lifemap') drawLifeMap();
+  else if(activeTab==='tab-simulate') drawSimGraph(scores);
+});
+
+// ═══════════════════════════════════════════════════
+// HABIT TRACKER ENGINE
+// ═══════════════════════════════════════════════════
+
+// ── Default activities ──
+const DEFAULT_ACTIVITIES = [
+  {id:'sleep8',emoji:'🌙',name:'Slept 7–9h',pts:15,hasNote:false},
+  {id:'exercise',emoji:'🏃',name:'Exercise',pts:12,hasNote:true,notePlaceholder:'mins'},
+  {id:'meditate',emoji:'🧘',name:'Meditation',pts:8,hasNote:true,notePlaceholder:'mins'},
+  {id:'healthy_eat',emoji:'🥗',name:'Healthy Eating',pts:10,hasNote:false},
+  {id:'deep_work',emoji:'🎯',name:'Deep Work',pts:12,hasNote:true,notePlaceholder:'hrs'},
+  {id:'no_phone',emoji:'📵',name:'Phone < 2h',pts:10,hasNote:false},
+  {id:'read',emoji:'📚',name:'Reading',pts:6,hasNote:true,notePlaceholder:'pages'},
+  {id:'water',emoji:'💧',name:'8 Glasses Water',pts:5,hasNote:false},
+  {id:'no_junk',emoji:'🚫',name:'No Junk Food',pts:7,hasNote:false},
+  {id:'journal',emoji:'📓',name:'Journaling',pts:5,hasNote:false},
+  {id:'walk',emoji:'🚶',name:'Walk / Outdoors',pts:6,hasNote:true,notePlaceholder:'mins'},
+  {id:'socialize',emoji:'👥',name:'Social / Family',pts:5,hasNote:false},
+];
+const MAX_POSSIBLE_PTS = DEFAULT_ACTIVITIES.reduce((a,b)=>a+b.pts,0);
+
+// ── State ──
+let trackerActivities = JSON.parse(localStorage.getItem('ht_activities')||'null') || DEFAULT_ACTIVITIES.map(a=>({...a}));
+let trackerLogs = JSON.parse(localStorage.getItem('ht_logs')||'{}'); // {dateKey: {checked:{id:bool}, notes:{id:str}, score:n}}
+let logDayOffset = 0; // 0=today
+let weekOffset = 0;   // 0=current week (Mon–Sun)
+let selectedEmoji = '⭐';
+
+// ── Helpers ──
+function getDateKey(offset=0){
+  const d=new Date();
+  d.setDate(d.getDate()+offset);
+  return d.toISOString().slice(0,10);
+}
+function formatDateLabel(offset){
+  if(offset===0) return 'Today';
+  if(offset===-1) return 'Yesterday';
+  const d=new Date(); d.setDate(d.getDate()+offset);
+  return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function computeDayScore(dayLog){
+  if(!dayLog) return 0;
+  let s=0;
+  trackerActivities.forEach(a=>{
+    if(dayLog.checked && dayLog.checked[a.id]) s+=a.pts;
+  });
+  return Math.min(100, Math.round(s/MAX_POSSIBLE_PTS*100));
+}
+function getWeekDates(weekOff){
+  // returns array of 7 date-keys Mon–Sun
+  const today=new Date();
+  const dow=today.getDay(); // 0=Sun
+  const mondayOffset= dow===0 ? -6 : -(dow-1);
+  const dates=[];
+  for(let i=0;i<7;i++){
+    const d=new Date(today);
+    d.setDate(today.getDate()+mondayOffset+i+weekOff*7);
+    dates.push(d.toISOString().slice(0,10));
+  }
+  return dates;
+}
+function saveLogs(){
+  localStorage.setItem('ht_logs',JSON.stringify(trackerLogs));
+  localStorage.setItem('ht_activities',JSON.stringify(trackerActivities));
+}
+function getQualityLabel(score){
+  if(score>=85) return {label:'Excellent Day! 🔥',color:'var(--green)',sub:'You crushed it. Top performance territory.'};
+  if(score>=70) return {label:'Great Day ✨',color:'var(--green)',sub:'Strong habits across the board.'};
+  if(score>=55) return {label:'Good Day 👍',color:'var(--accent2)',sub:'Solid effort. A few more wins next time.'};
+  if(score>=40) return {label:'Average Day',color:'var(--yellow)',sub:'Room to improve. Pick key habits.'};
+  if(score>=20) return {label:'Below Average',color:'var(--orange)',sub:'Small wins count. Start with one habit.'};
+  return {label:'Rough Day',color:'var(--red)',sub:'Every day is a new start.'};
+}
+
+// ── Render activity grid ──
+function renderActivityGrid(){
+  const dk=getDateKey(logDayOffset);
+  const log=trackerLogs[dk]||{checked:{},notes:{}};
+  const grid=document.getElementById('activity-grid');
+  grid.innerHTML='';
+  trackerActivities.forEach(a=>{
+    const checked=!!(log.checked&&log.checked[a.id]);
+    const note=log.notes&&log.notes[a.id]||'';
+    const div=document.createElement('div');
+    div.className='activity-card'+(checked?' checked':'');
+    div.id='ac-'+a.id;
+    div.setAttribute('onclick',`toggleActivity('${a.id}')`);
+    div.innerHTML=`
+      <div class="activity-card-header">
+        <span class="activity-emoji">${a.emoji}</span>
+        <div style="flex:1">
+          <div class="activity-name">${a.name}</div>
+          <div class="activity-pts">+${a.pts} pts</div>
+        </div>
+        <div class="activity-check">${checked?'✓':''}</div>
+      </div>
+      ${a.hasNote?`<div class="activity-input-wrap ${note||checked?'':''}">
+        <input class="activity-input" placeholder="${a.notePlaceholder||'note'}" value="${note}"
+          onclick="event.stopPropagation()"
+          oninput="updateNote('${a.id}',this.value)">
+      </div>`:''}
+    `;
+    grid.appendChild(div);
+  });
+  updateRingAndScore();
+}
+
+function toggleActivity(id){
+  const dk=getDateKey(logDayOffset);
+  if(!trackerLogs[dk]) trackerLogs[dk]={checked:{},notes:{}};
+  trackerLogs[dk].checked[id]=!!(trackerLogs[dk].checked[id])?false:true;
+  renderActivityGrid();
+}
+
+
+function updateNote(id,val){
+  const dk=getDateKey(logDayOffset);
+  if(!trackerLogs[dk]) trackerLogs[dk]={checked:{},notes:{}};
+  if(!trackerLogs[dk].notes) trackerLogs[dk].notes={};
+  trackerLogs[dk].notes[id]=val;
+}
+
+function updateRingAndScore(){
+  const dk=getDateKey(logDayOffset);
+  const log=trackerLogs[dk]||{checked:{},notes:{}};
+  let raw=0;
+  trackerActivities.forEach(a=>{if(log.checked&&log.checked[a.id]) raw+=a.pts;});
+  const score=Math.min(100,Math.round(raw/MAX_POSSIBLE_PTS*100));
+  // ring
+  const circ=251.2;
+  const offset=circ-(circ*score/100);
+  document.getElementById('ring-circle').style.strokeDashoffset=offset;
+  document.getElementById('ring-num').textContent=score;
+  const q=getQualityLabel(score);
+  document.getElementById('ring-num').style.color=q.color;
+  document.getElementById('ring-circle').style.stroke=q.color;
+  document.getElementById('day-quality-label').textContent=q.label;
+  document.getElementById('day-quality-label').style.color=q.color;
+  document.getElementById('day-quality-sub').textContent=q.sub;
+  // tags
+  const tags=document.getElementById('day-tags');
+  const checked=trackerActivities.filter(a=>log.checked&&log.checked[a.id]);
+  tags.innerHTML=checked.map(a=>`<span style="background:rgba(29,232,160,.1);border:1px solid rgba(29,232,160,.2);border-radius:20px;padding:3px 9px;font-family:var(--mono);font-size:10px;color:var(--green)">${a.emoji} ${a.name}</span>`).join('');
+}
+
+// ── Save day ──
+function saveDay(){
+  const dk=getDateKey(logDayOffset);
+  if(!trackerLogs[dk]) trackerLogs[dk]={checked:{},notes:{}};
+  const score=computeDayScore(trackerLogs[dk]);
+  trackerLogs[dk].score=score;
+  trackerLogs[dk].savedAt=new Date().toISOString();
+  saveLogs();
+  generateInsight();
+  renderTrackerStats();
+  renderWeekBars();
+  renderStreaks();
+  render7WeekGrid();
+  showToast(`Day saved — Score: ${score}/100`);
+}
+
+// ── AI Insight ──
+async function generateInsight(){
+  const dk=getDateKey(logDayOffset);
+  const log=trackerLogs[dk]||{checked:{},notes:{}};
+  const done=trackerActivities.filter(a=>log.checked&&log.checked[a.id]).map(a=>a.name);
+  const missed=trackerActivities.filter(a=>!log.checked||!log.checked[a.id]).map(a=>a.name);
+  const score=computeDayScore(log);
+  const box=document.getElementById('ai-insight-box');
+  box.textContent='✦ Generating insight…';
+
+  // Build 7-day context
+  const last7=[];
+  for(let i=1;i<=7;i++){
+    const d=getDateKey(-i);
+    if(trackerLogs[d]?.score!==undefined) last7.push(trackerLogs[d].score);
+  }
+  const trend=last7.length?`7-day trend: ${last7.reverse().join(', ')}`:'First day logged.';
+
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:160,
+        system:'You are a concise life coach inside a habit tracker app called LifeOS. Give a 2-sentence actionable insight based on the user\'s day. Be direct, warm, specific. No bullet points.',
+        messages:[{role:'user',content:`Today's score: ${score}/100. Completed: ${done.join(', ')||'nothing'}. Missed: ${missed.slice(0,5).join(', ')}. ${trend}`}]
+      })
+    });
+    const data=await resp.json();
+    box.textContent=data.content?.[0]?.text||'Keep tracking your habits consistently — patterns emerge over time.';
+  }catch(e){
+    box.textContent=getLocalInsight(score,done,missed);
+  }
+}
+
+function getLocalInsight(score,done,missed){
+  if(score>=80) return `Exceptional day — ${done[0]||'your habits'} set the tone. Maintain this streak and compound gains will follow.`;
+  if(score>=60) return `Solid day. Your ${done[0]||'completed habits'} are building momentum. Tomorrow, try adding ${missed[0]||'one more habit'}.`;
+  if(score>=40) return `Average effort today. Focus on ${missed[0]||'consistency'} first — it's your highest-impact missing habit.`;
+  return `Tough day — it happens. Reset tonight with proper sleep and make ${done[0]?'more of what worked':missed[0]||'one small win'} your goal tomorrow.`;
+}
+
+// ── Stats ──
+function renderTrackerStats(){
+  const today=getDateKey(0);
+  const todayLog=trackerLogs[today];
+  const todayScore=todayLog?.score!==undefined ? todayLog.score : computeDayScore(todayLog);
+  document.getElementById('ts-today').textContent=todayScore;
+  const q=getQualityLabel(todayScore);
+  document.getElementById('ts-today-sub').textContent=q.label;
+  document.getElementById('ts-today-sub').style.color=q.color;
+
+  // 7-day avg
+  let sum7=0,cnt7=0;
+  for(let i=0;i<7;i++){
+    const d=getDateKey(-i);
+    const s=trackerLogs[d]?.score;
+    if(s!==undefined){sum7+=s;cnt7++;}
+  }
+  const avg7=cnt7?Math.round(sum7/cnt7):null;
+  document.getElementById('ts-avg7').textContent=avg7!==null?avg7:'—';
+  document.getElementById('ts-avg7-sub').textContent=cnt7?`Based on ${cnt7} day${cnt7>1?'s':''}`:' Not enough data';
+
+  // Best
+  let best=0,bestDay='';
+  Object.entries(trackerLogs).forEach(([d,l])=>{const s=l.score||0;if(s>best){best=s;bestDay=d;}});
+  document.getElementById('ts-best').textContent=best||'—';
+  document.getElementById('ts-best-sub').textContent=bestDay?`On ${bestDay.slice(5)}`:'Keep going';
+
+  // Streak
+  let streak=0;
+  for(let i=0;i<365;i++){
+    const d=getDateKey(-i);
+    if(trackerLogs[d]?.score>0) streak++;
+    else break;
+  }
+  document.getElementById('improve-streak-num').textContent=streak;
+
+  // Improvement banner
+  const yesterday=trackerLogs[getDateKey(-1)]?.score;
+  const banner=document.getElementById('improve-banner');
+  const bigEl=document.getElementById('improve-big');
+  const subEl=document.getElementById('improve-sub');
+  const arrEl=document.getElementById('improve-arrow');
+  if(yesterday!==undefined&&todayScore>0){
+    const delta=todayScore-yesterday;
+    banner.className='improve-banner '+(delta>0?'up':delta<0?'down':'flat');
+    bigEl.textContent=(delta>=0?'+':'')+delta+' pts';
+    bigEl.style.color=delta>0?'var(--green)':delta<0?'var(--red)':'var(--accent)';
+    arrEl.textContent=delta>0?'↑':delta<0?'↓':'→';
+    arrEl.style.color=bigEl.style.color;
+    subEl.textContent=delta>0?`vs yesterday (${yesterday}) — Keep it up!`:delta<0?`vs yesterday (${yesterday}) — Bounce back tomorrow`:'Same as yesterday — push for more!';
+  } else {
+    banner.className='improve-banner flat';
+    bigEl.textContent='Track daily';bigEl.style.color='var(--accent)';
+    arrEl.textContent='→';subEl.textContent='Save today\'s log to see your improvement trend.';
+  }
+}
+
+// ── Week bar chart ──
+function renderWeekBars(){
+  const dates=getWeekDates(weekOffset);
+  const today=getDateKey(0);
+  const days=['M','T','W','T','F','S','S'];
+  const container=document.getElementById('week-bars');
+  container.innerHTML='';
+
+  const scores=dates.map(d=>trackerLogs[d]?.score!==undefined?trackerLogs[d].score:null);
+  const maxScore=Math.max(...scores.filter(s=>s!==null),1);
+
+  let sum=0,cnt=0;
+  scores.forEach(s=>{if(s!==null){sum+=s;cnt++;}});
+  const avg=cnt?Math.round(sum/cnt):null;
+  document.getElementById('week-avg-big').textContent=avg!==null?avg:'—';
+
+  // vs prev week
+  const prevDates=getWeekDates(weekOffset-1);
+  let ps=0,pc=0;
+  prevDates.forEach(d=>{const s=trackerLogs[d]?.score;if(s!==undefined){ps+=s;pc++;}});
+  const prevAvg=pc?Math.round(ps/pc):null;
+  const vsEl=document.getElementById('week-vs-prev');
+  if(prevAvg!==null&&avg!==null){
+    const d2=avg-prevAvg;
+    vsEl.textContent=(d2>=0?'▲ +':'▼ ')+d2+' vs prev';
+    vsEl.style.color=d2>=0?'var(--green)':'var(--red)';
+  } else vsEl.textContent='';
+
+  dates.forEach((d,i)=>{
+    const s=scores[i];
+    const isToday=d===today;
+    const col=document.createElement('div');
+    col.className='bar-col'+(isToday?' today-col':'');
+    const h=s!==null?Math.max(6,Math.round(s/100*120)):0;
+    const color=s===null?'var(--border2)':s>=70?'var(--green)':s>=45?'var(--accent)':'var(--orange)';
+    col.innerHTML=`
+      <div class="bar-val-label">${s!==null?s:''}</div>
+      <div class="bar-bg">
+        <div class="bar-fill" style="height:${h}px;background:${color}${isToday?';box-shadow:0 0 12px rgba(124,108,255,.4)':''}"></div>
+      </div>
+      <div class="bar-day-label">${days[i]}</div>
+    `;
+    container.appendChild(col);
+  });
+
+  // week range label
+  const first=new Date(dates[0]),last2=new Date(dates[6]);
+  document.getElementById('week-range-label').textContent=
+    first.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+last2.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  document.getElementById('btn-week-next').disabled=weekOffset>=0;
+  document.getElementById('btn-week-next').style.opacity=weekOffset>=0?'.3':'1';
+}
+
+// ── 7-week overview ──
+function render7WeekGrid(){
+  const container=document.getElementById('seven-week-grid');
+  container.innerHTML='';
+  for(let w=6;w>=0;w--){
+    const dates=getWeekDates(-w);
+    let sum=0,cnt=0,cells='';
+    dates.forEach(d=>{
+      const s=trackerLogs[d]?.score;
+      const color=s===undefined?'var(--border)':s>=70?'var(--green)':s>=45?'var(--accent)':'var(--orange)';
+      const opacity=s===undefined?.25:Math.max(.3,s/100);
+      cells+=`<div title="${d}: ${s!==undefined?s+'pts':'no data'}" style="flex:1;height:14px;border-radius:3px;background:${color};opacity:${opacity};transition:opacity .3s"></div>`;
+      if(s!==undefined){sum+=s;cnt++;}
+    });
+    const avg=cnt?Math.round(sum/cnt):null;
+    const first=new Date(dates[0]);
+    const label=w===0?'This week':`${first.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
+    container.innerHTML+=`
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3)">${label}</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text2)">${avg!==null?avg+' avg':''}</div>
+        </div>
+        <div style="display:flex;gap:3px">${cells}</div>
+      </div>`;
+  }
+}
+
+// ── Streaks ──
+function renderStreaks(){
+  const container=document.getElementById('streak-list');
+  container.innerHTML='';
+  trackerActivities.slice(0,8).forEach(a=>{
+    let streak=0;
+    for(let i=0;i<30;i++){
+      const d=getDateKey(-i);
+      if(trackerLogs[d]?.checked?.[a.id]) streak++;
+      else break;
+    }
+    // 7 dots = last 7 days
+    let dots='';
+    for(let i=6;i>=0;i--){
+      const d=getDateKey(-i);
+      const future=new Date(d)>new Date();
+      const done=!future&&trackerLogs[d]?.checked?.[a.id];
+      dots+=`<div class="streak-dot ${future?'future':done?'done':'miss'}"></div>`;
+    }
+    container.innerHTML+=`
+      <div class="streak-row">
+        <span class="streak-emoji">${a.emoji}</span>
+        <span class="streak-name">${a.name}</span>
+        <div class="streak-dots">${dots}</div>
+        <span class="streak-count" style="color:${streak>=3?'var(--green)':streak>0?'var(--accent)':'var(--text3)'}">${streak>0?'🔥'+streak:'—'}</span>
+      </div>`;
+  });
+}
+
+// ── Day navigation ──
+function shiftLogDay(delta){
+  logDayOffset=Math.min(0,logDayOffset+delta);
+  document.getElementById('log-day-label').textContent=formatDateLabel(logDayOffset);
+  document.getElementById('btn-day-next').disabled=logDayOffset>=0;
+  document.getElementById('btn-day-next').style.opacity=logDayOffset>=0?'.3':'1';
+  renderActivityGrid();
+}
+function shiftWeek(delta){
+  weekOffset=Math.min(0,weekOffset+delta);
+  renderWeekBars();
+}
+
+// ── Add habit modal ──
+const EMOJI_OPTIONS=['⭐','💪','🎵','🏊','🧠','🌿','☀️','🍎','🛏️','📖','✍️','🎨','🧹','🧘','🏋️','🚴','💻','🎯','🌙','💡'];
+function openAddHabit(){
+  selectedEmoji='⭐';
+  document.getElementById('habit-name-input').value='';
+  document.getElementById('habit-pts-input').value=5;
+  const picker=document.getElementById('emoji-picker');
+  picker.innerHTML=EMOJI_OPTIONS.map(e=>`<div class="emoji-opt${e===selectedEmoji?' sel':''}" onclick="selectEmoji('${e}',this)">${e}</div>`).join('');
+  document.getElementById('add-habit-modal').classList.add('open');
+}
+function closeAddHabit(){document.getElementById('add-habit-modal').classList.remove('open');}
+function selectEmoji(e,el){
+  selectedEmoji=e;
+  document.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function saveNewHabit(){
+  const name=document.getElementById('habit-name-input').value.trim();
+  if(!name){showToast('Please enter a habit name');return;}
+  const pts=Math.max(1,Math.min(20,parseInt(document.getElementById('habit-pts-input').value)||5));
+  const id='custom_'+Date.now();
+  trackerActivities.push({id,emoji:selectedEmoji,name,pts,hasNote:false});
+  saveLogs();
+  closeAddHabit();
+  renderActivityGrid();
+  showToast(`Added: ${selectedEmoji} ${name}`);
+}
+
+// ── Main render ──
+function renderTracker(){
+  document.getElementById('log-day-label').textContent=formatDateLabel(logDayOffset);
+  document.getElementById('btn-day-next').disabled=true;
+  document.getElementById('btn-day-next').style.opacity='.3';
+  renderActivityGrid();
+  renderTrackerStats();
+  renderWeekBars();
+  render7WeekGrid();
+  renderStreaks();
+}
+
+</script>
+</body>
+</html>
